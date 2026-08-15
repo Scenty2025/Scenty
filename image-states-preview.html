@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>معاينة حالات تحميل الصور</title>
+<style>
+  body{font-family:system-ui,-apple-system,sans-serif;background:#faf7f8;padding:40px;margin:0;}
+  h1{font-size:20px;margin-bottom:8px;}
+  p{color:#666;font-size:14px;margin-bottom:32px;max-width:600px;}
+  .row{display:flex;gap:24px;flex-wrap:wrap;}
+  .card{width:220px;}
+  .card-photo-fill{position:relative;width:220px;height:220px;border-radius:16px;overflow:hidden;background:linear-gradient(150deg,#FF7EB8cc,#FF7EB8);box-shadow:0 4px 20px rgba(0,0,0,0.08);}
+  .label{margin-top:10px;font-weight:700;font-size:13px;text-align:center;}
+  .desc{margin-top:4px;font-size:12px;color:#888;text-align:center;}
+  @keyframes chsShimmer{0%{background-position:100% 50%}100%{background-position:0% 50%}}
+  @keyframes chsSpin{to{transform:rotate(360deg)}}
+  .chs-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;display:block;transition:opacity 0.4s ease;}
+  .chs-img-err{position:absolute;inset:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;background:linear-gradient(90deg,#f0eef0 25%,#f8f6f8 37%,#f0eef0 63%);background-size:400% 100%;animation:chsShimmer 1.4s ease-in-out infinite;}
+  .chs-img-err span{font-size:11px;font-weight:700;color:#999;letter-spacing:0.3px;}
+  .chs-img-err::before{content:'';width:22px;height:22px;border:2.5px solid #ccc;border-top-color:#999;border-radius:50%;animation:chsSpin 0.8s linear infinite;}
+  button{margin-top:14px;padding:8px 16px;border-radius:20px;border:none;background:#333;color:#fff;font-size:12px;font-weight:700;cursor:pointer;width:100%;}
+  button:hover{background:#000;}
+</style>
+</head>
+<body>
+
+<h1>معاينة حالات الصورة اللي هتظهر للعميل (نسخة معدّلة)</h1>
+<p>دلوقتي لو الصورة فشلت حتى بعد محاولتين، بتفضل شكلها "بتحمّل" (سبينر + شيمر) بدل أيقونة كاميرا ممكن تتفهم غلط إنها التصميم الفعلي للمنتج.</p>
+
+<div class="row">
+
+  <div class="card">
+    <div class="card-photo-fill" id="wrap1">
+      <img id="img1" class="chs-img" alt="Rosy"
+        style="opacity:0;background:linear-gradient(90deg,#f0eef0 25%,#f8f6f8 37%,#f0eef0 63%);background-size:400% 100%;animation:chsShimmer 1.4s ease-in-out infinite;"
+        onload="this.style.opacity='1';this.style.animation='none';this.style.background='none';">
+    </div>
+    <div class="label">1. وهي بتحمّل (شيمر)</div>
+    <div class="desc">أول ما الكارت يفتح، طول ما الصورة لسه جاية</div>
+    <button onclick="resetDemo1()">🔁 كرري الحالة دي</button>
+  </div>
+
+  <div class="card">
+    <div class="card-photo-fill" id="wrap2">
+      <img class="chs-img" alt="Boldy" src="https://images.unsplash.com/photo-1541643600914-78b084683601?w=400"
+        style="opacity:0;background:linear-gradient(90deg,#f0eef0 25%,#f8f6f8 37%,#f0eef0 63%);background-size:400% 100%;animation:chsShimmer 1.4s ease-in-out infinite;"
+        onload="this.style.opacity='1';this.style.animation='none';this.style.background='none';">
+    </div>
+    <div class="label">2. خلصت تحميل ✅</div>
+    <div class="desc">الشيمر بيتفيد أوت والصورة الحقيقية بتظهر</div>
+  </div>
+
+  <div class="card">
+    <div class="card-photo-fill" id="wrap3" style="background:linear-gradient(150deg,#B57FEEcc,#B57FEE);">
+      <div class="chs-img-err"><span>الصورة بتحمّل...</span></div>
+    </div>
+    <div class="label">3. فشلت حتى بعد محاولتين ❌➜⏳</div>
+    <div class="desc">بتفضل شكلها "بتحمّل" مش "خربانة" - العميل مش هيفتكرها التصميم</div>
+    <button onclick="resetDemo3()">🔁 شوفي نفس الحالة تاني</button>
+  </div>
+
+</div>
+
+<script>
+function resetDemo1(){
+  document.getElementById('wrap1').innerHTML = '<img id="img1" class="chs-img" alt="Rosy" style="opacity:0;background:linear-gradient(90deg,#f0eef0 25%,#f8f6f8 37%,#f0eef0 63%);background-size:400% 100%;animation:chsShimmer 1.4s ease-in-out infinite;" onload="this.style.opacity=\'1\';this.style.animation=\'none\';this.style.background=\'none\';">';
+  setTimeout(function(){
+    document.getElementById('img1').src = 'https://images.unsplash.com/photo-1541643600914-78b084683601?w=400&t=' + Date.now();
+  }, 3000);
+}
+function resetDemo3(){
+  var wrap = document.getElementById('wrap3');
+  wrap.innerHTML = '<div class="chs-img-err"><span>الصورة بتحمّل...</span></div>';
+}
+</script>
+
+</body>
+</html>
