@@ -1266,7 +1266,11 @@ window.populateVideoProductSelect = function() {
   if (!el) return;
   const checkedIds = Array.from(el.querySelectorAll('input[type=checkbox]:checked')).map(c => c.value);
   el.innerHTML = products.map(p => {
-    const id = p.firestoreId;
+    // BOLDY/PINKKY/ROSY are pinned to fixed lowercase ids on the storefront
+    // regardless of their real Firestore document id (see bundleProductId) —
+    // use that same pinned id here so a linked video actually matches on
+    // the storefront even if e.g. ROSY's real doc id has a typo in it.
+    const id = bundleProductId(p);
     const checked = checkedIds.includes(id) ? 'checked' : '';
     return `<label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#eee;cursor:pointer;">
       <input type="checkbox" class="vProductChk" value="${id}" ${checked} style="width:16px;height:16px;flex-shrink:0;">
@@ -1284,19 +1288,62 @@ window.setSelectedVideoProductIds = function(ids) {
 };
 
 window._editingVideoId = null;
+window._uploadedReviewVideoUrl = null;
+
+window.uploadReviewVideoFile = async function(){
+  const inp = document.getElementById('vVideoFile');
+  const status = document.getElementById('vVideoUploadStatus');
+  const file = inp.files[0];
+  if(!file){ showToast('⚠️ Choose a video file first'); return; }
+  const btn = document.getElementById('vVideoUploadBtn');
+  btn.disabled = true;
+  try{
+    status.textContent = 'Uploading... 0%';
+    const url = await window.uploadVideoToStorage(file, function(pct){
+      status.textContent = 'Uploading... ' + pct + '%';
+    });
+    window._uploadedReviewVideoUrl = url;
+    status.textContent = '';
+    document.getElementById('vVideoUploadedWrap').style.display = 'flex';
+    // an uploaded file takes priority — clear any pasted URL so it's unambiguous
+    document.getElementById('vDriveUrl').value = '';
+    showToast('✅ Video uploaded!');
+  }catch(e){
+    status.textContent = '';
+    showToast('❌ Upload failed: '+e.message);
+  }finally{
+    btn.disabled = false;
+  }
+};
+window.clearUploadedReviewVideo = function(){
+  window._uploadedReviewVideoUrl = null;
+  document.getElementById('vVideoUploadedWrap').style.display = 'none';
+  document.getElementById('vVideoFile').value = '';
+  document.getElementById('vVideoUploadStatus').textContent = '';
+};
+
 window.saveAdminVideo = async function() {
   const rawUrl = (document.getElementById('vDriveUrl').value || '').trim();
   const label  = (document.getElementById('vLabel').value  || '').trim() || 'REAL RESULT';
   const selectedIds = getSelectedVideoProductIds();
-  if (!rawUrl)       { showToast('❌ Enter a Google Drive URL'); return; }
+  if (!window._uploadedReviewVideoUrl && !rawUrl) { showToast('❌ Upload a video file or enter a URL'); return; }
   if (!_vCoverData)  { showToast('❌ Upload a cover photo'); return; }
-  const driveMatch = rawUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
-  const vimeoMatch = rawUrl.match(/vimeo\.com\/(?:video\/)?(\d+)/);
-  const src = driveMatch ? 'https://drive.google.com/file/d/' + driveMatch[1] + '/preview'
-            : vimeoMatch ? 'https://player.vimeo.com/video/' + vimeoMatch[1]
-            : rawUrl;
+  let src, type;
+  if (window._uploadedReviewVideoUrl) {
+    // directly-hosted file — the storefront already plays this natively
+    // through the <video> element whenever type isn't 'iframe'
+    src = window._uploadedReviewVideoUrl;
+    type = 'video';
+  } else {
+    const driveMatch = rawUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+    const vimeoMatch = rawUrl.match(/vimeo\.com\/(?:video\/)?(\d+)/);
+    src = driveMatch ? 'https://drive.google.com/file/d/' + driveMatch[1] + '/preview'
+        : vimeoMatch ? 'https://player.vimeo.com/video/' + vimeoMatch[1]
+        : rawUrl;
+    type = 'iframe';
+  }
   try {
-    const videoDoc = { src, thumb: _vCoverData, label, type: 'iframe', productId: null, productIds: null };
+    const videoDoc = { src, thumb: _vCoverData, label, type, productId: null, productIds: null };
     if (selectedIds.length > 1) videoDoc.productIds = selectedIds;
     else if (selectedIds.length === 1) videoDoc.productId = selectedIds[0];
     if (window._editingVideoId) {
@@ -1315,7 +1362,19 @@ window.editAdminVideo = function(id) {
   const v = (window._adminVideosCache || []).find(x => x.id === id);
   if (!v) return;
   window._editingVideoId = id;
-  document.getElementById('vDriveUrl').value = v.src || '';
+  window._uploadedReviewVideoUrl = null;
+  document.getElementById('vVideoUploadedWrap').style.display = 'none';
+  document.getElementById('vVideoFile').value = '';
+  document.getElementById('vVideoUploadStatus').textContent = '';
+  if (v.type === 'video') {
+    // this video was uploaded directly — keep it assigned unless the admin
+    // uploads a replacement or clears it
+    window._uploadedReviewVideoUrl = v.src;
+    document.getElementById('vVideoUploadedWrap').style.display = 'flex';
+    document.getElementById('vDriveUrl').value = '';
+  } else {
+    document.getElementById('vDriveUrl').value = v.src || '';
+  }
   document.getElementById('vLabel').value = v.label || '';
   setSelectedVideoProductIds(v.productIds || (v.productId ? [v.productId] : []));
   _vCoverData = v.thumb || null;
@@ -1338,6 +1397,7 @@ window.cancelVideoEdit = function() {
   document.getElementById('vLabel').value = '';
   setSelectedVideoProductIds([]);
   removeVCover();
+  window.clearUploadedReviewVideo();
   document.getElementById('vFormTitle').textContent = '➕ Add New Video';
   document.getElementById('vCancelEditBtn').style.display = 'none';
   document.getElementById('vSaveBtn').textContent = '🎥 Save Video';
@@ -2218,6 +2278,25 @@ tr:hover td{background:rgba(255,255,255,0.03);}
             <button id="vCoverRmBtn" onclick="removeVCover()" style="display:none;margin-top:6px;background:none;border:1px solid #ff3355;color:#ff3355;border-radius:8px;padding:4px 10px;font-size:11px;cursor:pointer;">Remove</button>
           </div>
 
+          <!-- Upload Video File (Cloudinary) OR paste a Drive/Vimeo URL -->
+          <div>
+            <div style="font-size:11px;color:var(--muted);font-weight:700;margin-bottom:8px;letter-spacing:1px;text-transform:uppercase;">Upload Video File</div>
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+              <input type="file" id="vVideoFile" accept="video/*" style="flex:1;min-width:180px;color:#fff;">
+              <button type="button" onclick="uploadReviewVideoFile()" id="vVideoUploadBtn"
+                style="background:var(--pink);color:#fff;border:none;border-radius:50px;padding:10px 20px;font-size:12px;font-weight:900;letter-spacing:0.5px;cursor:pointer;white-space:nowrap;">
+                ⬆️ Upload
+              </button>
+            </div>
+            <div id="vVideoUploadStatus" style="font-size:11px;color:var(--muted);margin-top:6px;"></div>
+            <div id="vVideoUploadedWrap" style="display:none;margin-top:8px;align-items:center;gap:10px;">
+              <span style="font-size:11px;color:#7CFC9A;font-weight:800;">✅ Video uploaded &amp; ready</span>
+              <button type="button" onclick="clearUploadedReviewVideo()" style="background:none;border:1px solid #444;color:#ccc;border-radius:8px;padding:3px 10px;font-size:11px;cursor:pointer;">Clear</button>
+            </div>
+          </div>
+
+          <div style="text-align:center;font-size:11px;color:var(--muted);font-weight:800;letter-spacing:1px;">— OR —</div>
+
           <!-- Drive/Vimeo URL -->
           <div>
             <div style="font-size:11px;color:var(--muted);font-weight:700;margin-bottom:8px;letter-spacing:1px;text-transform:uppercase;">Google Drive or Vimeo URL</div>
@@ -2645,6 +2724,35 @@ window.uploadToStorage = async function(file) {
   if(!res.ok){ const err=await res.json(); throw new Error(err.error&&err.error.message||'Upload failed'); }
   const json = await res.json();
   return json.secure_url;
+};
+
+// Same idea as uploadToStorage but hits Cloudinary's video endpoint — used for
+// review/testimonial video uploads so they're hosted alongside the images
+// instead of needing a Google Drive or Vimeo link.
+window.uploadVideoToStorage = async function(file, onProgress) {
+  return new Promise((resolve, reject) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('upload_preset', CLOUDINARY_PRESET);
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', 'https://api.cloudinary.com/v1_1/'+CLOUDINARY_CLOUD+'/video/upload');
+    if(onProgress){
+      xhr.upload.onprogress = function(e){
+        if(e.lengthComputable) onProgress(Math.round((e.loaded/e.total)*100));
+      };
+    }
+    xhr.onload = function(){
+      if(xhr.status >= 200 && xhr.status < 300){
+        try{ resolve(JSON.parse(xhr.responseText).secure_url); }
+        catch(e){ reject(new Error('Bad response from Cloudinary')); }
+      } else {
+        try{ reject(new Error(JSON.parse(xhr.responseText).error.message)); }
+        catch(e){ reject(new Error('Video upload failed')); }
+      }
+    };
+    xhr.onerror = function(){ reject(new Error('Network error during video upload')); };
+    xhr.send(fd);
+  });
 };
 
 // Upload selected gallery files and append URLs to the gallery textarea
