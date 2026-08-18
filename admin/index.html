@@ -11,7 +11,7 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-import { getFirestore, collection, doc, addDoc, setDoc, updateDoc, deleteDoc, getDocs, getDoc, onSnapshot, serverTimestamp, query, orderBy, limit, where } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { getFirestore, collection, doc, addDoc, setDoc, updateDoc, deleteDoc, getDocs, getDoc, onSnapshot, serverTimestamp, query, orderBy, limit, where, writeBatch } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCnK6vLqEsZeQQyn_bJcafdKHZqquuxla8",
@@ -631,6 +631,33 @@ window.loadAnalytics = async function() {
     }).join(''));
   } catch(e) {
     setHTML('analyticsLoading', `<div style="color:var(--red);padding:20px;font-size:13px">Error loading analytics: ${e.message}</div>`);
+  }
+};
+
+// Permanently deletes every visit record in the 'analytics' collection (fetched and
+// deleted in batches of 500, Firestore's per-batch write limit, looping until the
+// collection is empty), then reloads the dashboard so all the stats/cards reset to 0.
+window.resetAnalytics = async function() {
+  if (!confirm('Reset all analytics history? This permanently deletes every recorded visit and cannot be undone.')) return;
+  const btn = document.getElementById('analyticsResetBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '↻ Resetting…'; }
+  try {
+    let totalDeleted = 0;
+    while (true) {
+      const snap = await getDocs(query(collection(db, 'analytics'), limit(500)));
+      if (snap.empty) break;
+      const batch = writeBatch(db);
+      snap.docs.forEach(d => batch.delete(d.ref));
+      await batch.commit();
+      totalDeleted += snap.docs.length;
+      if (snap.docs.length < 500) break;
+    }
+    if (window.showToast) window.showToast(`✅ Analytics reset — ${totalDeleted} visit${totalDeleted!==1?'s':''} deleted`);
+    loadAnalytics();
+  } catch(e) {
+    if (window.showToast) window.showToast('❌ Failed to reset analytics: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🗑 Reset History'; }
   }
 };
 
@@ -1939,7 +1966,10 @@ tr:hover td{background:rgba(255,255,255,0.03);}
     <div class="panel" id="panel-analytics">
       <div class="panel-head">
         <div><div class="panel-head-title">Analytics</div><div class="panel-head-sub">Visitor data from the live site 🔥</div></div>
-        <button class="add-btn" onclick="loadAnalytics()" style="background:linear-gradient(135deg,#05DBF2,#0099aa)">↻ Refresh</button>
+        <div style="display:flex;gap:10px;">
+          <button class="add-btn" id="analyticsResetBtn" onclick="resetAnalytics()" style="background:linear-gradient(135deg,#ff5f5f,#b33232)">🗑 Reset History</button>
+          <button class="add-btn" onclick="loadAnalytics()" style="background:linear-gradient(135deg,#05DBF2,#0099aa)">↻ Refresh</button>
+        </div>
       </div>
       <!-- Stat cards -->
       <div class="stats-row" style="grid-template-columns:repeat(4,1fr)">
