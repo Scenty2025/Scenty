@@ -1352,6 +1352,7 @@ window.clearUploadedReviewVideo = function(){
 window.saveAdminVideo = async function() {
   const rawUrl = (document.getElementById('vDriveUrl').value || '').trim();
   const label  = (document.getElementById('vLabel').value  || '').trim() || 'REAL RESULT';
+  const orderVal = document.getElementById('vOrder').value;
   const selectedIds = getSelectedVideoProductIds();
   if (!window._uploadedReviewVideoUrl && !rawUrl) { showToast('❌ Upload a video file or enter a URL'); return; }
   if (!_vCoverData)  { showToast('❌ Upload a cover photo'); return; }
@@ -1370,7 +1371,18 @@ window.saveAdminVideo = async function() {
     type = 'iframe';
   }
   try {
-    const videoDoc = { src, thumb: _vCoverData, label, type, productId: null, productIds: null };
+    let order;
+    if (orderVal !== '' && orderVal !== null) {
+      order = parseInt(orderVal) || 0;
+    } else if (window._editingVideoId) {
+      order = 0;
+    } else {
+      // New video with no order typed in — put it after everything else
+      // instead of defaulting to 0 (which would jump it to the front).
+      const existing = window._adminVideosCache || [];
+      order = existing.length ? Math.max(...existing.map(v => v.order||0)) + 1 : 0;
+    }
+    const videoDoc = { src, thumb: _vCoverData, label, order, type, productId: null, productIds: null };
     if (selectedIds.length > 1) videoDoc.productIds = selectedIds;
     else if (selectedIds.length === 1) videoDoc.productId = selectedIds[0];
     if (window._editingVideoId) {
@@ -1403,6 +1415,7 @@ window.editAdminVideo = function(id) {
     document.getElementById('vDriveUrl').value = v.src || '';
   }
   document.getElementById('vLabel').value = v.label || '';
+  document.getElementById('vOrder').value = (v.order !== undefined && v.order !== null) ? v.order : 0;
   setSelectedVideoProductIds(v.productIds || (v.productId ? [v.productId] : []));
   _vCoverData = v.thumb || null;
   const prev = document.getElementById('vCoverPrev');
@@ -1422,6 +1435,7 @@ window.cancelVideoEdit = function() {
   window._editingVideoId = null;
   document.getElementById('vDriveUrl').value = '';
   document.getElementById('vLabel').value = '';
+  document.getElementById('vOrder').value = '';
   setSelectedVideoProductIds([]);
   removeVCover();
   window.clearUploadedReviewVideo();
@@ -1444,6 +1458,10 @@ window.loadAdminVideos = async function() {
   try {
     const snap = await getDocs(query(collection(db, 'videos'), orderBy('createdAt', 'desc')));
     const vids = []; snap.forEach(d => vids.push({ id: d.id, ...d.data() }));
+    // Missing order defaults high so older videos (added before this feature
+    // existed) keep showing in their old relative order instead of vanishing;
+    // giving any video a small order number reliably pulls it to the front.
+    vids.sort((a, b) => (a.order != null ? a.order : 9999) - (b.order != null ? b.order : 9999));
     window._adminVideosCache = vids;
     if (!vids.length) { el.innerHTML = '<div style="color:var(--muted);font-size:13px;">No videos yet.</div>'; return; }
     el.innerHTML = vids.map(v => `
@@ -1455,6 +1473,7 @@ window.loadAdminVideos = async function() {
               <svg viewBox="0 0 10 12" style="width:12px;height:12px;fill:#111;margin-left:2px"><path d="M0 0l10 6-10 6z"/></svg>
             </div>
           </div>
+          <div style="position:absolute;top:8px;left:8px;background:rgba(0,0,0,0.7);color:#fff;font-size:10px;font-weight:900;padding:3px 9px;border-radius:20px;">#${v.order||0}</div>
         </div>
         <div style="padding:10px 12px;">
           <div style="font-size:11px;font-weight:900;color:#fff;margin-bottom:6px;">${escAdm(v.label||'')}</div>
@@ -2175,7 +2194,7 @@ tr:hover td{background:rgba(255,255,255,0.03);}
           </div>
           <div>
             <label style="font-size:11px;font-weight:900;letter-spacing:2px;text-transform:uppercase;color:#999;display:block;margin-bottom:6px;">City Photos <span style="font-size:11px;color:var(--muted);font-weight:600;text-transform:none;letter-spacing:0;">(you can add more than one — shown as a swipeable gallery in the popup; paste URLs, one per line, or upload)</span></label>
-            <textarea class="mf-input" id="cityImages" rows="4" placeholder="https://example.com/photo1.jpg&#10;https://example.com/photo2.jpg&#10;..." style="resize:vertical;font-family:monospace;font-size:12px;width:100%;padding:12px 16px;border:2px solid #eee;border-radius:12px;box-sizing:border-box;"></textarea>
+            <textarea class="mf-input" id="cityImages" rows="4" placeholder="https://example.com/photo1.jpg&#10;https://example.com/photo2.jpg&#10;..." style="resize:vertical;font-family:monospace;font-size:12px;width:100%;padding:12px 16px;border:2px solid #eee;border-radius:12px;box-sizing:border-box;color:#000;background:#fff;"></textarea>
             <div style="display:flex;gap:8px;align-items:center;margin-top:8px;">
               <input type="file" id="cityImageFiles" accept="image/*" multiple style="flex:1;">
               <button type="button" class="mf-btn" onclick="uploadCityGalleryFiles()" style="padding:8px 12px;border-radius:8px;background:#ab72c2;color:#fff;border:none;cursor:pointer;">Upload</button>
@@ -2184,7 +2203,7 @@ tr:hover td{background:rgba(255,255,255,0.03);}
           </div>
           <div>
             <label style="font-size:11px;font-weight:900;letter-spacing:2px;text-transform:uppercase;color:#999;display:block;margin-bottom:6px;">Order (number)</label>
-            <input id="cityOrder" type="number" value="0" style="width:100px;padding:12px 16px;border:2px solid #eee;border-radius:12px;font-size:14px;font-weight:700;">
+            <input id="cityOrder" type="number" value="0" style="width:100px;padding:12px 16px;border:2px solid #000000;border-radius:12px;font-size:14px;font-weight:700;">
           </div>
           <!-- hidden lat/lng inputs (kept for internal use only) -->
           <input type="hidden" id="cityLat">
@@ -2339,6 +2358,13 @@ tr:hover td{background:rgba(255,255,255,0.03);}
             <div style="font-size:11px;color:var(--muted);font-weight:700;margin-bottom:8px;letter-spacing:1px;text-transform:uppercase;">Label (e.g. PPG COLLECTION)</div>
             <input id="vLabel" type="text" placeholder="REAL RESULT"
               style="width:100%;box-sizing:border-box;background:#111;border:1px solid #333;border-radius:10px;padding:10px 14px;color:#fff;font-size:13px;font-family:inherit;">
+          </div>
+
+          <!-- Order -->
+          <div>
+            <div style="font-size:11px;color:var(--muted);font-weight:700;margin-bottom:8px;letter-spacing:1px;text-transform:uppercase;">Order (lower number shows first on the site)</div>
+            <input id="vOrder" type="number" step="1" placeholder="0"
+              style="width:140px;box-sizing:border-box;background:#111;border:1px solid #333;border-radius:10px;padding:10px 14px;color:#fff;font-size:13px;font-family:inherit;">
           </div>
 
           <!-- Linked Product(s) -->
@@ -3385,7 +3411,7 @@ const __MANUAL_CITIES = {
   DZ:[{name:'Algiers',lat:36.7631,lng:3.0506},{name:'Oran',lat:35.71,lng:-0.62},{name:'Constantine',lat:36.36,lng:6.5999},{name:'Chlef',lat:36.1704,lng:1.32},{name:'Arak',lat:25.28,lng:3.75},{name:'Blida',lat:36.4203,lng:2.83},{name:'Annaba',lat:36.92,lng:7.76},{name:'Setif',lat:36.18,lng:5.4},{name:'Bejaia',lat:36.7604,lng:5.07},{name:'Batna',lat:35.57,lng:6.17},{name:'Biskra',lat:34.86,lng:5.73},{name:'Sidi bel Abbes',lat:35.1903,lng:-0.64},{name:'Skikda',lat:36.8804,lng:6.9},{name:'Tiarat',lat:35.3804,lng:1.32},{name:'Tlimcen',lat:34.8904,lng:-1.32},{name:'El Oued',lat:33.3704,lng:6.86},{name:'Ouargla',lat:31.97,lng:5.34},{name:'Tebessa',lat:35.4104,lng:8.12},{name:'Djelfa',lat:34.68,lng:3.25},{name:'Mostaganem',lat:35.9404,lng:0.09},{name:'Jijel',lat:36.822,lng:5.766},{name:'Medea',lat:36.2704,lng:2.77},{name:'Tizi-Ouzou',lat:36.8,lng:4.0333},{name:'Bechar',lat:31.6111,lng:-2.23},{name:'Souk Ahras',lat:36.2904,lng:7.95},{name:'Saida',lat:34.8404,lng:0.14},{name:'Bordj Bou Arreridj',lat:36.059,lng:4.63},{name:'Ghardaia',lat:32.49,lng:3.67},{name:'M\'sila',lat:35.7,lng:4.545},{name:'Guelma',lat:36.466,lng:7.428},{name:'Bouira',lat:36.3805,lng:3.9},{name:'Laghouat',lat:33.81,lng:2.88},{name:'Mascara',lat:35.4004,lng:0.14},{name:'Oum el Bouaghi',lat:35.85,lng:7.15},{name:'Touggourt',lat:33.1,lng:6.06},{name:'Tamanrasset',lat:22.785,lng:5.5228},{name:'El Bayadh',lat:33.6904,lng:1.01},{name:'Adrar',lat:27.87,lng:-0.29},{name:'Sefra',lat:32.7604,lng:-0.5799},{name:'El Golea',lat:30.5666,lng:2.8833},{name:'I-n-Salah',lat:27.2166,lng:2.4666},{name:'Timimoun',lat:29.2365,lng:0.27},{name:'Reggane',lat:26.7,lng:0.1666},{name:'Tindouf',lat:27.6742,lng:-8.1478},{name:'Hassi Messaoud',lat:31.7023,lng:6.0545},{name:'Abadla',lat:31.0171,lng:-2.7333},{name:'Illizi',lat:26.4834,lng:8.4666},{name:'Beni Ounif',lat:32.0493,lng:-1.2514},{name:'In Amguel',lat:23.6939,lng:5.1647},{name:'Djanet',lat:24.5529,lng:9.4823},{name:'I-n-Amenas',lat:28.0503,lng:9.55}],
   EC:[{name:'Guayaquil',lat:-2.22,lng:-79.92},{name:'Quito',lat:-0.215,lng:-78.5001},{name:'Cuenca',lat:-2.9,lng:-79.0},{name:'Ambato',lat:-1.2696,lng:-78.62},{name:'Machala',lat:-3.26,lng:-79.96},{name:'Portoviejo',lat:-1.06,lng:-80.46},{name:'Manta',lat:-0.98,lng:-80.73},{name:'Riobamba',lat:-1.67,lng:-78.65},{name:'Esmeraldas',lat:0.9304,lng:-79.67},{name:'Ibarra',lat:0.3604,lng:-78.13},{name:'Loja',lat:-3.99,lng:-79.21},{name:'Sangolqui',lat:-0.31,lng:-78.46},{name:'Tulcan',lat:0.822,lng:-77.732},{name:'Latacunga',lat:-0.9296,lng:-78.61},{name:'Babahoyo',lat:-1.7996,lng:-79.54},{name:'Milagro',lat:-2.1796,lng:-79.6},{name:'Azogues',lat:-2.74,lng:-78.84},{name:'Chone',lat:-0.6896,lng:-80.09},{name:'Jipijapa',lat:-1.3496,lng:-80.58},{name:'Cayambe',lat:0.0504,lng:-78.16},{name:'Puyo',lat:-1.483,lng:-77.987},{name:'Salinas',lat:-2.2,lng:-80.98},{name:'Tena',lat:-0.9796,lng:-77.81},{name:'Guaranda',lat:-1.61,lng:-79.01},{name:'Macas',lat:-2.3096,lng:-78.12},{name:'San Lorenzo',lat:1.2704,lng:-78.8601},{name:'Pinas',lat:-3.67,lng:-79.65},{name:'San Gabriel',lat:0.61,lng:-77.84},{name:'Alausi',lat:-2.19,lng:-78.85},{name:'Macara',lat:-4.3796,lng:-79.95},{name:'Zamora',lat:-4.0696,lng:-78.97},{name:'Muisne',lat:0.61,lng:-80.02},{name:'Santa Cruz',lat:-0.5333,lng:-90.35},{name:'Valdez',lat:1.2671,lng:-78.9855},{name:'Puerto Baquerizo Moreno',lat:-0.9,lng:-89.6},{name:'Puerto Villamil',lat:-0.9333,lng:-91.0167},{name:'Yaupi',lat:-2.8543,lng:-77.9363}],
   EE:[{name:'Tallinn',lat:59.4339,lng:24.728},{name:'Tartu',lat:58.3839,lng:26.7099},{name:'Narva',lat:59.3776,lng:28.1603},{name:'Parnu',lat:58.3747,lng:24.5136},{name:'Kohtla-Jarve',lat:59.4,lng:27.2833},{name:'Viljandi',lat:58.3639,lng:25.59},{name:'Haapsalu',lat:58.9431,lng:23.5414}],
-  EG:[{name:'Cairo',lat:30.05,lng:31.25},{name:'Alexandria',lat:31.2,lng:29.95},{name:'El Giza',lat:30.01,lng:31.19},{name:'Bur Said',lat:31.26,lng:32.29},{name:'Luxor',lat:25.7,lng:32.65},{name:'El Mansura',lat:31.0504,lng:31.38},{name:'Suez',lat:30.005,lng:32.5499},{name:'Ismailia',lat:30.5903,lng:32.26},{name:'Asyut',lat:27.19,lng:31.1799},{name:'Tanta',lat:30.7904,lng:31.0},{name:'Sohag',lat:26.5504,lng:31.7},{name:'Damanhûr',lat:31.0504,lng:30.47},{name:'El Minya',lat:28.09,lng:30.75},{name:'Beni Suef',lat:29.0804,lng:31.09},{name:'El Faiyum',lat:29.31,lng:30.84},{name:'Zagazig',lat:30.5833,lng:31.5167},{name:'Aswan',lat:24.0875,lng:32.8989},{name:'Qena',lat:26.1505,lng:32.72},{name:'Dumyat',lat:31.4204,lng:31.82},{name:'Shibin el Kom',lat:30.592,lng:30.9},{name:'Benha',lat:30.4667,lng:31.1833},{name:'Hurghada',lat:27.23,lng:33.83},{name:'Sharm El Sheikh',lat:27.9158,lng:34.3299},{name:'Dahab',lat:28.5091,lng:34.5136},{name:'Marsa Alam',lat:25.0687,lng:34.8927},{name:'Ain Sokhna',lat:29.6034,lng:32.3462},{name:'Marina',lat:30.8419,lng:28.9528},{name:'El Arish',lat:31.1249,lng:33.8006},{name:'Kafr el Sheikh',lat:31.109,lng:30.936},{name:'Rashid',lat:31.4604,lng:30.39},{name:'Samalut',lat:28.3004,lng:30.71},{name:'Girga',lat:26.3304,lng:31.88},{name:'Isna',lat:25.2904,lng:32.5499},{name:'Matruh',lat:31.3504,lng:27.23},{name:'Beni Mazar',lat:28.4904,lng:30.81},{name:'El Kharga',lat:25.44,lng:30.55},{name:'Siwa',lat:29.2,lng:25.5167},{name:'El Tur',lat:28.2394,lng:33.6148},{name:'Bur Safaga',lat:26.7337,lng:33.9333},{name:'El Daba',lat:31.0338,lng:28.4333},{name:'Salum',lat:31.567,lng:25.15},{name:'Qasr Farafra',lat:27.0671,lng:27.9666},{name:'El Alamein',lat:30.8171,lng:28.95},{name:'El Qasr',lat:25.7004,lng:28.8833},{name:'Berenice',lat:23.946,lng:35.4842}],
+  EG:[{name:'Cairo',lat:30.05,lng:31.25},{name:'Alexandria',lat:31.2,lng:29.95},{name:'El Giza',lat:30.01,lng:31.19},{name:'Port Said',lat:31.26,lng:32.29},{name:'Luxor',lat:25.7,lng:32.65},{name:'El Mansura',lat:31.0504,lng:31.38},{name:'Suez',lat:30.005,lng:32.5499},{name:'Ismailia',lat:30.5903,lng:32.26},{name:'Asyut',lat:27.19,lng:31.1799},{name:'Tanta',lat:30.7904,lng:31.0},{name:'Sohag',lat:26.5504,lng:31.7},{name:'Damanhûr',lat:31.0504,lng:30.47},{name:'El Minya',lat:28.09,lng:30.75},{name:'Beni Suef',lat:29.0804,lng:31.09},{name:'El Faiyum',lat:29.31,lng:30.84},{name:'Zagazig',lat:30.5833,lng:31.5167},{name:'Aswan',lat:24.0875,lng:32.8989},{name:'Qena',lat:26.1505,lng:32.72},{name:'Dumyat',lat:31.4204,lng:31.82},{name:'Shibin el Kom',lat:30.592,lng:30.9},{name:'Benha',lat:30.4667,lng:31.1833},{name:'Hurghada',lat:27.23,lng:33.83},{name:'Sharm El Sheikh',lat:27.9158,lng:34.3299},{name:'Dahab',lat:28.5091,lng:34.5136},{name:'Marsa Alam',lat:25.0687,lng:34.8927},{name:'Ain Sokhna',lat:29.6034,lng:32.3462},{name:'Marina',lat:30.8419,lng:28.9528},{name:'El Arish',lat:31.1249,lng:33.8006},{name:'Kafr el Sheikh',lat:31.109,lng:30.936},{name:'Rashid',lat:31.4604,lng:30.39},{name:'Samalut',lat:28.3004,lng:30.71},{name:'Girga',lat:26.3304,lng:31.88},{name:'Isna',lat:25.2904,lng:32.5499},{name:'Matruh',lat:31.3504,lng:27.23},{name:'Beni Mazar',lat:28.4904,lng:30.81},{name:'El Kharga',lat:25.44,lng:30.55},{name:'Siwa',lat:29.2,lng:25.5167},{name:'El Tur',lat:28.2394,lng:33.6148},{name:'Bur Safaga',lat:26.7337,lng:33.9333},{name:'El Daba',lat:31.0338,lng:28.4333},{name:'Salum',lat:31.567,lng:25.15},{name:'Qasr Farafra',lat:27.0671,lng:27.9666},{name:'El Alamein',lat:30.8171,lng:28.95},{name:'El Qasr',lat:25.7004,lng:28.8833},{name:'Berenice',lat:23.946,lng:35.4842}],
   EH:[{name:'Bir Lehlou',lat:26.1192,lng:-9.6525}],
   ER:[{name:'Asmara',lat:15.3333,lng:38.9333},{name:'Keren',lat:15.6804,lng:38.45},{name:'Massawa',lat:15.6101,lng:39.45},{name:'Mendefera',lat:14.886,lng:38.8163},{name:'Assab',lat:13.01,lng:42.73},{name:'Agordat',lat:15.549,lng:37.8867},{name:'Tessenei',lat:15.1104,lng:36.6575}],
   ES:[{name:'Barcelona',lat:41.3833,lng:2.1834},{name:'Madrid',lat:40.4,lng:-3.6834},{name:'Seville',lat:37.405,lng:-5.98},{name:'Valencia',lat:39.485,lng:-0.4},{name:'Bilbao',lat:43.25,lng:-2.93},{name:'Zaragoza',lat:41.65,lng:-0.89},{name:'Malaga',lat:36.7204,lng:-4.42},{name:'Murcia',lat:37.98,lng:-1.13},{name:'Las Palmas',lat:28.1,lng:-15.43},{name:'Vigo',lat:42.22,lng:-8.73},{name:'Palma',lat:39.5743,lng:2.6542},{name:'Granada',lat:37.165,lng:-3.585},{name:'La Coruña',lat:43.33,lng:-8.42},{name:'Gijon',lat:43.53,lng:-5.67},{name:'Cordoba',lat:37.88,lng:-4.77},{name:'Valladolid',lat:41.65,lng:-4.75},{name:'Alicante',lat:38.3512,lng:-0.4836},{name:'Santa Cruz de Tenerife',lat:28.47,lng:-16.25},{name:'San Sebastián',lat:43.3204,lng:-1.98},{name:'Pamplona',lat:42.82,lng:-1.65},{name:'Oviedo',lat:43.3505,lng:-5.83},{name:'Vitoria',lat:42.85,lng:-2.67},{name:'Santander',lat:43.3805,lng:-3.8},{name:'Castello',lat:39.9704,lng:-0.05},{name:'Cartagena',lat:37.6004,lng:-0.98},{name:'Salamanca',lat:40.9704,lng:-5.67},{name:'Cadiz',lat:36.535,lng:-6.225},{name:'Marbella',lat:36.5166,lng:-4.8833},{name:'Almeria',lat:36.8303,lng:-2.43},{name:'Burgos',lat:42.3504,lng:-3.68},{name:'Mataro',lat:41.54,lng:2.45},{name:'Leon',lat:42.58,lng:-5.57},{name:'Albacete',lat:39.0003,lng:-1.87},{name:'Logrono',lat:42.4704,lng:-2.43},{name:'Huelva',lat:37.2504,lng:-6.9299},{name:'Badajoz',lat:38.8804,lng:-6.97},{name:'Ourense',lat:42.33,lng:-7.87},{name:'Tarragona',lat:41.1204,lng:1.25},{name:'Melilla',lat:35.3,lng:-2.95},{name:'Algeciras',lat:36.1267,lng:-5.4665},{name:'Jaén',lat:37.7704,lng:-3.8},{name:'Santiago de Compostela',lat:42.8829,lng:-8.5411},{name:'Ceuta',lat:35.889,lng:-5.307},{name:'Lorca',lat:37.6886,lng:-1.6985},{name:'Toledo',lat:39.867,lng:-4.0167},{name:'Merida',lat:38.912,lng:-6.338},{name:'Guadalajara',lat:40.6337,lng:-3.1666},{name:'Linares',lat:38.0833,lng:-3.6334},{name:'Arrecife',lat:28.969,lng:-13.5378}],
