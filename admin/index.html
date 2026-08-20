@@ -1535,8 +1535,8 @@ window.loadAdminOrders = async function() {
         <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.06);font-size:12px;color:var(--text);line-height:1.8;">${itemsHTML}</div>
         <div style="margin-top:10px;padding-top:10px;border-top:1px dashed rgba(255,255,255,0.08);font-size:12px;color:var(--muted);line-height:1.9;">
           <div style="display:flex;justify-content:space-between;"><span>Products Subtotal</span><span style="color:var(--text);font-weight:800;">EGP ${productsSubtotal}</span></div>
-          ${discountAmount>0 ? `<div style="display:flex;justify-content:space-between;"><span>Discount${promoLabel ? ` (${promoLabel})` : ' (offer)'}</span><span style="color:#3db86e;font-weight:800;">-EGP ${discountAmount}</span></div>` : ''}
-          <div style="display:flex;justify-content:space-between;"><span>Shipping</span><span style="color:var(--text);font-weight:800;">EGP ${shippingCost}</span></div>
+          ${discountAmount>0 ? `<div style="display:flex;justify-content:space-between;"><span>Discount${promoLabel ? ` (${promoLabel})` : ' (offer)'}</span><span style="color:#3db86e;font-weight:800;">-EGP ${discountAmount}</span></div>` : (promoLabel ? `<div style="display:flex;justify-content:space-between;"><span>Promo Code</span><span style="color:#3db86e;font-weight:800;">${promoLabel}</span></div>` : '')}
+          <div style="display:flex;justify-content:space-between;"><span>Shipping${shippingCost===0 && o.shippingFreeReason ? ` <span style="color:#3db86e;font-weight:700;">(Free — ${o.shippingFreeReason})</span>` : ''}</span><span style="color:var(--text);font-weight:800;">EGP ${shippingCost}</span></div>
           <div style="display:flex;justify-content:space-between;margin-top:4px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.08);"><span style="font-weight:900;color:var(--text);">Total</span><span style="font-weight:900;color:var(--pink);">EGP ${orderTotal}</span></div>
         </div>
         ${o.notes ? `<div style="margin-top:8px;font-size:12px;color:var(--muted);font-style:italic;">"${o.notes}"</div>` : ''}
