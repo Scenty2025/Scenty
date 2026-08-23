@@ -4145,6 +4145,10 @@ AE:'United Arab Emirates',AF:'Afghanistan',AL:'Albania',AM:'Armenia',AO:'Angola'
           <span style="font-size:12px;font-weight:700;color:#888;">Subtotal</span>
           <span id="orderSubtotalValue" style="font-size:13px;font-weight:800;color:#555;"></span>
         </div>
+        <div id="orderDiscountRow" style="display:none;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <span style="font-size:12px;font-weight:700;color:#888;">Discount</span>
+          <span id="orderDiscountValue" style="font-size:13px;font-weight:800;color:#1a9c5e;"></span>
+        </div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
           <span style="font-size:12px;font-weight:700;color:#888;">Shipping</span>
           <span id="orderShippingValue" style="font-size:13px;font-weight:800;color:#555;">Select governorate</span>
@@ -5372,6 +5376,33 @@ function updateCart(){
   document.querySelectorAll('.bag-count').forEach(function(bc){ bc.textContent=count; bc.style.display=count>0?'flex':'none'; });
   renderCartItems();
 }
+function getCartSavingsSummary(){
+  const items=[];
+  getFixedBundleDiscount().applied.forEach(function(a){
+    items.push({ label:a.name, amount:Math.round(a.totalSavings) });
+  });
+  cart.forEach(function(i){
+    const ob=getOfferBreakdown(i);
+    if(ob.freeQty>0) items.push({ label:i.name, amount:Math.round(ob.freeQty*i.price) });
+  });
+  if(Array.isArray(window.bundles)){
+    window.bundles.forEach(function(b){
+      if(!b || b.enabled===false || b.type!=='gift' || !b.gift) return;
+      const g=b.gift;
+      const triggerId=bsResolveBundleProductId(g.triggerProductId);
+      const haveQty=cart.filter(function(i){ return i.id===triggerId; }).reduce(function(s,i){ return s+i.qty; },0);
+      const sets=Math.floor(haveQty/(g.triggerQty||1));
+      if(sets<=0) return;
+      const freeQty=sets*(g.freeQty||1);
+      const fp=allProducts().find(function(x){ return x.id===g.freeProductId || x.firestoreId===g.freeProductId; });
+      if(!fp) return;
+      const unitPrice=(fp.sizePrices && fp.sizePrices[g.freeSize]) || fp.price;
+      items.push({ label:b.name, amount:Math.round(unitPrice*freeQty) });
+    });
+  }
+  return items;
+}
+window.getCartSavingsSummary=getCartSavingsSummary;
 function renderCartItems(){
   const el=document.getElementById('cartItemsList');
   if(!cart.length){el.innerHTML=`<div class="cart-empty-state"><div class="cart-empty-emoji"><img src="images/bag.svg" style="width:80px;height:107px;object-fit:contain;"></div><div class="cart-empty-text">Your bag is empty!</div></div>`;return;}
@@ -5403,6 +5434,10 @@ function renderCartItems(){
         <div class="cart-item-price" style="color:${g.color}">FREE</div>
       </div>
     </div>`).join('');
+  const savings=getCartSavingsSummary();
+  html += savings.map(function(s){
+    return `<div style="border:2px dashed var(--pink);border-radius:16px;padding:12px 16px;margin-top:12px;color:var(--pink);font-weight:800;font-size:13px;text-align:center;">🎁 ${s.label}: -EGP ${s.amount}</div>`;
+  }).join('');
   el.innerHTML=html;
 }
 function openCart(){document.getElementById('cartOverlay').classList.add('open');document.getElementById('cartDrawer').classList.add('open');renderCartItems();}
@@ -5504,11 +5539,21 @@ function updateOrderTotal(){
   if(freeShip && shipping!==null) shipping=0;
   const final=subtotal+(shipping||0);
   const subEl=document.getElementById('orderSubtotalValue');
+  const discRowBox=document.getElementById('orderDiscountRow');
+  const discValEl=document.getElementById('orderDiscountValue');
   const shipEl=document.getElementById('orderShippingValue');
   const el=document.getElementById('orderTotalValue');
   const osEl=document.getElementById('osTotalVal');
   const discRowEl=document.getElementById('osDiscountRow');
-  if(subEl) subEl.textContent='EGP '+subtotal;
+  if(subEl) subEl.textContent='EGP '+raw;
+  if(discRowBox){
+    if(discountAmt>0){
+      discRowBox.style.display='flex';
+      if(discValEl) discValEl.textContent='-EGP '+discountAmt;
+    }else{
+      discRowBox.style.display='none';
+    }
+  }
   if(shipEl) shipEl.textContent = shipping===null ? 'Select governorate' : (freeShip ? 'FREE 🚚' : ('EGP '+shipping));
   if(el) el.textContent='EGP '+final;
   if(osEl) osEl.textContent='EGP '+final;
