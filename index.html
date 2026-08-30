@@ -3458,37 +3458,10 @@ AE:'United Arab Emirates',AF:'Afghanistan',AL:'Albania',AM:'Armenia',AO:'Angola'
     
     var hoverPointer = null; // {x, y} in client coords, or null when pointer is off the globe
     function updateCountryHoverFrame(){
-      
-      var outerWrap = document.getElementById('travelGlobeWrap');
-      if(outerWrap && outerWrap.classList.contains('gw-hidden')) return;
-      if(!hoverPointer || isDown || !sphereMesh){ hideCountryHoverBadge(); return; }
-      try{
-        var rect = renderer.domElement.getBoundingClientRect();
-        var mx = ((hoverPointer.x - rect.left) / rect.width) * 2 - 1;
-        var my = -((hoverPointer.y - rect.top) / rect.height) * 2 + 1;
-        var raycaster = new THREE.Raycaster();
-        raycaster.setFromCamera(new THREE.Vector2(mx, my), camera);
-        var hits = raycaster.intersectObject(sphereMesh);
-        if(!hits.length){ hideCountryHoverBadge(); return; }
-        var local = sphereMesh.worldToLocal(hits[0].point.clone());
-        var R = local.length() || 1;
-        var phi = Math.acos(Math.max(-1, Math.min(1, local.y / R)));
-        var theta = Math.atan2(local.z, -local.x);
-        var lat = 90 - (phi * 180 / Math.PI);
-        var lng = (theta * 180 / Math.PI) - 180;
-        
-        if (lng < -180) lng += 360;
-        var px = latLngToWorldPixel(lat, lng);
-        var cc = findCountryAtPixel(px.x, px.y);
-        if(cc && COUNTRY_NAMES[cc]){
-          showCountryHoverBadge(COUNTRY_NAMES[cc], hoverPointer.x, hoverPointer.y);
-        } else {
-          hideCountryHoverBadge();
-        }
-      }catch(err){
-        console.warn('country hover failed', err);
-        hideCountryHoverBadge();
-      }
+      // Country-name hover badge intentionally disabled on the 3D globe — it stays
+      // on the flat 2D map only (see the separate handler further down).
+      hideCountryHoverBadge();
+      return;
     }
     wrap.addEventListener('mousemove', function(e){ hoverPointer = {x:e.clientX, y:e.clientY}; });
     wrap.addEventListener('mouseleave', function(){ hoverPointer = null; hideCountryHoverBadge(); });
@@ -3547,7 +3520,6 @@ AE:'United Arab Emirates',AF:'Afghanistan',AL:'Albania',AM:'Armenia',AO:'Angola'
         sprite.visible = t > 0.02;
       });
       renderer.render(scene, camera);
-      updateCountryHoverFrame();
     }
   }
 
@@ -3609,14 +3581,14 @@ AE:'United Arab Emirates',AF:'Afghanistan',AL:'Albania',AM:'Armenia',AO:'Angola'
     }
 
    
-    foldEl.addEventListener('mousemove', function(e){
-      var panelEl = e.target.closest ? e.target.closest('.fold-panel') : null;
+    function handleFlatMapPoint(clientX, clientY, targetEl){
+      var panelEl = targetEl && targetEl.closest ? targetEl.closest('.fold-panel') : null;
       if(!panelEl){ hideCountryHoverBadge(); return; }
       var idx = Array.prototype.indexOf.call(foldEl.querySelectorAll('.fold-panel'), panelEl);
       if(idx < 0){ hideCountryHoverBadge(); return; }
       var rect = panelEl.getBoundingClientRect();
-      var localX = e.clientX - rect.left;
-      var localY = e.clientY - rect.top;
+      var localX = clientX - rect.left;
+      var localY = clientY - rect.top;
       var posPct = idx * (100 / (PANELS - 1));
       var bgWidth = PANELS * rect.width; // background-size: 400% of panel width
       var offset = (posPct / 100) * (bgWidth - rect.width);
@@ -3627,12 +3599,31 @@ AE:'United Arab Emirates',AF:'Afghanistan',AL:'Albania',AM:'Armenia',AO:'Angola'
       var py = fracY * 1024;
       var cc = findCountryAtPixel(px, py);
       if(cc && COUNTRY_NAMES[cc]){
-        showCountryHoverBadge(COUNTRY_NAMES[cc], e.clientX, e.clientY);
+        showCountryHoverBadge(COUNTRY_NAMES[cc], clientX, clientY);
       } else {
         hideCountryHoverBadge();
       }
+    }
+    foldEl.addEventListener('mousemove', function(e){
+      handleFlatMapPoint(e.clientX, e.clientY, e.target);
     });
     foldEl.addEventListener('mouseleave', hideCountryHoverBadge);
+    // Touch support: mousemove never fires on real touchscreens, so the country-name
+    // badge previously never appeared on mobile at all. Map a finger touch/drag to the
+    // same lookup used for the mouse.
+    foldEl.addEventListener('touchstart', function(e){
+      var t = e.touches && e.touches[0];
+      if(!t) return;
+      var el = document.elementFromPoint(t.clientX, t.clientY);
+      handleFlatMapPoint(t.clientX, t.clientY, el);
+    }, {passive:true});
+    foldEl.addEventListener('touchmove', function(e){
+      var t = e.touches && e.touches[0];
+      if(!t) return;
+      var el = document.elementFromPoint(t.clientX, t.clientY);
+      handleFlatMapPoint(t.clientX, t.clientY, el);
+    }, {passive:true});
+    foldEl.addEventListener('touchend', hideCountryHoverBadge);
   }
 
   function placeFlatMapPins(){
@@ -3863,10 +3854,8 @@ AE:'United Arab Emirates',AF:'Afghanistan',AL:'Albania',AM:'Armenia',AO:'Angola'
   window.openTravelPopup = function(cityOrGroup){
     
     var _hoverBadgeEl = document.getElementById('countryHoverBadge');
-    if(_hoverBadgeEl){
-      _hoverBadgeEl.textContent = '';
-      _hoverBadgeEl.style.setProperty('opacity', '0', 'important');
-      _hoverBadgeEl.style.setProperty('display', 'none', 'important');
+    if(_hoverBadgeEl && typeof hideCountryHoverBadge === 'function'){
+      hideCountryHoverBadge();
     }
     _travelCityGroup = Array.isArray(cityOrGroup) ? cityOrGroup : [cityOrGroup];
     _travelCityIdx = 0;
@@ -3980,11 +3969,13 @@ AE:'United Arab Emirates',AF:'Afghanistan',AL:'Albania',AM:'Armenia',AO:'Angola'
             <span class="pdp-size-label">Size</span>
             <button class="pdp-size-btn" onclick="pdpSelectSize('decant3',this)">Decant 3ml</button>
             <button class="pdp-size-btn" onclick="pdpSelectSize('decant',this)">Decant 5ml</button>
+            <button class="pdp-size-btn" onclick="pdpSelectSize('8ml',this)">8ml</button>
+            <button class="pdp-size-btn" onclick="pdpSelectSize('10ml',this)">10ml</button>
+            <button class="pdp-size-btn" onclick="pdpSelectSize('15ml',this)">15ml</button>
             <button class="pdp-size-btn" onclick="pdpSelectSize('30ml',this)">30ml</button>
             <button class="pdp-size-btn active" onclick="pdpSelectSize('50ml',this)">50ml</button>
             <button class="pdp-size-btn" onclick="pdpSelectSize('100ml',this)">100ml</button>
-            <button class="pdp-size-btn" onclick="pdpSelectSize('10ml',this)">10ml</button>
-            <button class="pdp-size-btn" onclick="pdpSelectSize('15ml',this)">15ml</button>
+            <button class="pdp-size-btn" onclick="pdpSelectSize('200ml',this)">200ml</button>
           </div>
           <div class="pdp-tags" id="pdpTags"></div>
           <div class="pdp-desc" id="pdpDesc"></div>
@@ -5219,7 +5210,7 @@ function cartLineTotal(i){ return getOfferBreakdown(i).lineTotal; }
 window.cartLineTotal=cartLineTotal;
 
 // ===== BUNDLES ENGINE (cross-product gift-with-purchase & fixed-price combos) =====
-const BUNDLE_SIZE_LABELS={decant3:'Decant 3ml',decant:'Decant 5ml','30ml':'30ml','50ml':'50ml','100ml':'100ml','10ml':'10ml','15ml':'15ml'};
+const BUNDLE_SIZE_LABELS={decant3:'Decant 3ml',decant:'Decant 5ml','8ml':'8ml','30ml':'30ml','50ml':'50ml','100ml':'100ml','10ml':'10ml','15ml':'15ml','200ml':'200ml'};
 
 function bsResolveBundleProductId(pid){
   const p=allProducts().find(function(x){ return x.id===pid || x.firestoreId===pid; });
@@ -5675,7 +5666,7 @@ async function placeOrder(){
     }
 
     const cartItems=cart.map(i=>{const ob=getOfferBreakdown(i);return {name:i.name,qty:i.qty,size:i.size||'',price:i.price,total:ob.lineTotal,freeQty:ob.freeQty};}).concat(giftLines.map(g=>({name:g.name,qty:g.qty,size:g.size||'',price:0,total:0,freeQty:g.qty,bundleGift:true})));
-    const orderData={name,phone,city,address,items:itemsSummary,cartItems,total:'EGP '+finalTotal,originalTotal:rawTotal!==subtotal?'EGP '+rawTotal:undefined,shippingCost,promo:promoInfo,payment:payLabel,notes};
+    const orderData={name,phone,city,address,items:itemsSummary,cartItems,subtotal:'EGP '+subtotal,total:'EGP '+finalTotal,originalTotal:rawTotal!==subtotal?'EGP '+rawTotal:undefined,shippingCost,promo:promoInfo,payment:payLabel,notes};
 
     
     let firestoreOrderId=null;
@@ -5842,7 +5833,7 @@ function openPDP(id, opts) {
   // Mark sold out sizes
   var _sos = window._pdpSoldOutSizes || {};
   
-  var _primarySizeKeys = ['decant3','decant','30ml','50ml','100ml','10ml','15ml'];
+  var _primarySizeKeys = ['decant3','decant','8ml','10ml','15ml','30ml','50ml','100ml','200ml'];
   var _hasAnySizeImg = _primarySizeKeys.some(function(k){ return !!window._pdpSizeImages[k]; });
   document.querySelectorAll('.pdp-size-btn').forEach(function(btn){
     var sz = btn.getAttribute('onclick').match(/pdpSelectSize\('([^']+)'/);
@@ -5869,10 +5860,18 @@ function openPDP(id, opts) {
   });
   
   var _activeBtnCheck = document.querySelector('.pdp-size-btn.active');
-  if(_activeBtnCheck && _activeBtnCheck.style.display === 'none'){
+  var _activeIsSoldOut = _activeBtnCheck && _sos[(_activeBtnCheck.getAttribute('onclick').match(/pdpSelectSize\('([^']+)'/)||[])[1]];
+  if(_activeBtnCheck && (_activeBtnCheck.style.display === 'none' || _activeIsSoldOut)){
     document.querySelectorAll('.pdp-size-btn').forEach(function(btn){ btn.classList.remove('active'); });
-    var _firstVisible = Array.from(document.querySelectorAll('.pdp-size-btn')).find(function(btn){ return btn.style.display !== 'none'; });
-    if(_firstVisible) _firstVisible.classList.add('active');
+    var _firstAvailable = Array.from(document.querySelectorAll('.pdp-size-btn')).find(function(btn){
+      if(btn.style.display === 'none') return false;
+      var _k = (btn.getAttribute('onclick').match(/pdpSelectSize\('([^']+)'/)||[])[1];
+      return !(_k && _sos[_k]);
+    });
+    // If every visible size happens to be sold out, fall back to the first visible one
+    // (still better than none selected) rather than leaving the page with no active size.
+    var _fallback = _firstAvailable || Array.from(document.querySelectorAll('.pdp-size-btn')).find(function(btn){ return btn.style.display !== 'none'; });
+    if(_fallback) _fallback.classList.add('active');
   }
   document.getElementById('pdpBadge').style.background = p.color || 'var(--dark)';
   var _pdpAccent = p.color || '#FF5FAE';
@@ -5962,12 +5961,15 @@ function openPDP(id, opts) {
   const bagBtn = document.getElementById('pdpBtnBag');
   const countdownWrap = document.getElementById('offerCountdownWrap');
   if(p.soldOut){
-    buyBtn.disabled=true; buyBtn.style.opacity='0.6'; buyBtn.style.cursor='not-allowed'; buyBtn.textContent='SOLD OUT';
-    bagBtn.disabled=true; bagBtn.style.opacity='0.6'; bagBtn.style.cursor='not-allowed'; bagBtn.textContent='SOLD OUT';
+    buyBtn.disabled=true; buyBtn.style.opacity='1'; buyBtn.style.cursor='not-allowed'; buyBtn.textContent='SOLD OUT';
+    buyBtn.style.background='#ff4a6b'; buyBtn.style.color='#fff'; buyBtn.style.border='2px solid #ff4a6b'; buyBtn.style.filter='grayscale(0.55) brightness(0.92)';
+    bagBtn.disabled=true; bagBtn.style.opacity='1'; bagBtn.style.cursor='not-allowed'; bagBtn.textContent='SOLD OUT';
+    bagBtn.style.background='#ff4a6b'; bagBtn.style.color='#fff'; bagBtn.style.borderColor='#ff4a6b'; bagBtn.style.filter='grayscale(0.55) brightness(0.92)';
+    bagBtn.onmouseenter=null; bagBtn.onmouseleave=null;
     if(countdownWrap) countdownWrap.style.display = 'none';
   } else {
-    buyBtn.disabled=false; buyBtn.style.opacity='1'; buyBtn.style.cursor='pointer'; buyBtn.textContent='Buy Now →';
-    bagBtn.disabled=false; bagBtn.style.opacity='1'; bagBtn.style.cursor='pointer'; bagBtn.textContent='+ Add to Bag';
+    buyBtn.disabled=false; buyBtn.style.opacity='1'; buyBtn.style.cursor='pointer'; buyBtn.style.filter=''; buyBtn.textContent='Buy Now →';
+    bagBtn.disabled=false; bagBtn.style.opacity='1'; bagBtn.style.cursor='pointer'; bagBtn.style.filter=''; bagBtn.textContent='+ Add to Bag';
     buyBtn.style.background = p.color || 'var(--pink)';
     bagBtn.style.borderColor = p.color || 'var(--dark)';
     bagBtn.style.color = p.color || 'var(--dark)';
@@ -6052,7 +6054,7 @@ window.pdpSelectSize = function(size, btn) {
   // Update size label under product name
   var _typeEl = document.getElementById('pdpType');
   if(_typeEl){
-    var _sizeLabelMap = {decant3:'3ml', decant:'5ml', '30ml':'30ml', '50ml':'50ml', '100ml':'100ml', '10ml':'10ml', '15ml':'15ml'};
+    var _sizeLabelMap = {decant3:'3ml', decant:'5ml', '8ml':'8ml', '30ml':'30ml', '50ml':'50ml', '100ml':'100ml', '10ml':'10ml', '15ml':'15ml', '200ml':'200ml'};
     var _sizeLabel = _sizeLabelMap[size] || size;
     _typeEl.textContent = 'Eau de Parfum · ' + _sizeLabel;
   }
@@ -6062,27 +6064,35 @@ window.pdpSelectSize = function(size, btn) {
   if(bagBtn){
     if(!bagBtn.dataset.originalText) bagBtn.dataset.originalText = bagBtn.textContent;
     if(isSizeSoldOut){
-      bagBtn.disabled = true; bagBtn.style.opacity='0.6'; bagBtn.style.cursor='not-allowed'; bagBtn.textContent='SOLD OUT';
+      bagBtn.disabled = true; bagBtn.style.opacity='1'; bagBtn.style.cursor='not-allowed'; bagBtn.textContent='SOLD OUT';
+      bagBtn.style.background='#ff4a6b'; bagBtn.style.color='#fff'; bagBtn.style.borderColor='#ff4a6b'; bagBtn.style.filter='grayscale(0.55) brightness(0.92)';
+      bagBtn.onmouseenter=null; bagBtn.onmouseleave=null;
     } else if(!pdpCurrentProduct || !pdpCurrentProduct.soldOut){
-      bagBtn.disabled = false; bagBtn.style.opacity='1'; bagBtn.style.cursor='pointer'; bagBtn.textContent = bagBtn.dataset.originalText || '+ Add to Bag';
-      bagBtn.style.borderColor = pdpCurrentProduct?pdpCurrentProduct.color:''; bagBtn.style.color = pdpCurrentProduct?pdpCurrentProduct.color:'';
+      bagBtn.disabled = false; bagBtn.style.opacity='1'; bagBtn.style.cursor='pointer'; bagBtn.style.filter=''; bagBtn.textContent = bagBtn.dataset.originalText || '+ Add to Bag';
+      bagBtn.style.background=''; bagBtn.style.borderColor = pdpCurrentProduct?pdpCurrentProduct.color:''; bagBtn.style.color = pdpCurrentProduct?pdpCurrentProduct.color:'';
+      var _bagColor = pdpCurrentProduct?pdpCurrentProduct.color:'';
+      bagBtn.onmouseenter = function(){ this.style.background = _bagColor; this.style.color='white'; };
+      bagBtn.onmouseleave = function(){ this.style.background = ''; this.style.color = _bagColor; };
     }
   }
   if(buyBtn){
     if(!buyBtn.dataset.originalText) buyBtn.dataset.originalText = buyBtn.textContent;
     if(isSizeSoldOut){
-      buyBtn.disabled = true; buyBtn.style.opacity='0.6'; buyBtn.style.cursor='not-allowed'; buyBtn.textContent='SOLD OUT';
+      buyBtn.disabled = true; buyBtn.style.opacity='1'; buyBtn.style.cursor='not-allowed'; buyBtn.textContent='SOLD OUT';
+      buyBtn.style.background='#ff4a6b'; buyBtn.style.color='#fff'; buyBtn.style.border='2px solid #ff4a6b'; buyBtn.style.filter='grayscale(0.55) brightness(0.92)';
     } else if(!pdpCurrentProduct || !pdpCurrentProduct.soldOut){
-      buyBtn.disabled = false; buyBtn.style.opacity='1'; buyBtn.style.cursor='pointer'; buyBtn.textContent = buyBtn.dataset.originalText || 'Buy Now →';
-      buyBtn.style.background = pdpCurrentProduct?pdpCurrentProduct.color:'';
+      buyBtn.disabled = false; buyBtn.style.opacity='1'; buyBtn.style.cursor='pointer'; buyBtn.style.filter=''; buyBtn.textContent = buyBtn.dataset.originalText || 'Buy Now →';
+      buyBtn.style.background = pdpCurrentProduct?pdpCurrentProduct.color:''; buyBtn.style.color=''; buyBtn.style.border='';
     }
   }
   var sizeImg  = window._pdpSizeImages && window._pdpSizeImages[size];
   var sizeImg2 = (size === 'decant3') ? (window._pdpSizeImages && window._pdpSizeImages['decant3b'])
                : (size === 'decant')  ? (window._pdpSizeImages && window._pdpSizeImages['decant2'])
+               : (size === '8ml')     ? (window._pdpSizeImages && window._pdpSizeImages['8ml2'])
                : (size === '30ml')    ? (window._pdpSizeImages && window._pdpSizeImages['30ml2'])
                : (size === '50ml')    ? (window._pdpSizeImages && window._pdpSizeImages['50ml2'])
                : (size === '100ml')   ? (window._pdpSizeImages && window._pdpSizeImages['100ml2'])
+               : (size === '200ml')   ? (window._pdpSizeImages && window._pdpSizeImages['200ml2'])
                : (size === '10ml')    ? (window._pdpSizeImages && window._pdpSizeImages['10ml2'])
                : (size === '15ml')    ? (window._pdpSizeImages && window._pdpSizeImages['15ml2'])
                : null;
@@ -6098,7 +6108,7 @@ window.pdpSelectSize = function(size, btn) {
   if(sizeImg && mainImg){
     mainImg.style.opacity="0.4"; mainImg.src = sizeImg; mainImg.onload=function(){mainImg.style.opacity="1"; var _w=mainImg.closest('.pdp-main-img-wrap'); if(_w) _w.classList.add('img-loaded');};
     // Decant: show its own 2 thumbs; other sizes: restore product thumbs
-    if((size === 'decant3' || size === 'decant' || size === '30ml' || size === '50ml' || size === '100ml' || size === '10ml' || size === '15ml') && thumbsEl && sizeImg2){
+    if((size === 'decant3' || size === 'decant' || size === '8ml' || size === '30ml' || size === '50ml' || size === '100ml' || size === '200ml' || size === '10ml' || size === '15ml') && thumbsEl && sizeImg2){
       var dImgs = sizeImg3 ? [sizeImg, sizeImg2, sizeImg3] : [sizeImg, sizeImg2];
       dImgs.forEach(function(s){ if(isRealPhoto(s)) window._sizeRealPhotos.add(s); });
       var extraImgs = (window._pdpImgs||[]).filter(function(s){ return s !== window._pdpDefaultImg && s !== sizeImg && s !== sizeImg2 && s !== sizeImg3; });
@@ -6231,7 +6241,7 @@ function pdpAddBag(openCartAfter) {
   // fell back to the product's default size/price (e.g. 50ml) no matter which size the
   // person had picked, since pdpSelectSize only updated the displayed price/photo and
   // never told Add to Bag which size was selected.
-  var _sizeLabelMap = {decant3:'3ml', decant:'5ml', '30ml':'30ml', '50ml':'50ml', '100ml':'100ml', '10ml':'10ml', '15ml':'15ml'};
+  var _sizeLabelMap = {decant3:'3ml', decant:'5ml', '8ml':'8ml', '30ml':'30ml', '50ml':'50ml', '100ml':'100ml', '10ml':'10ml', '15ml':'15ml', '200ml':'200ml'};
   var sizeLabel = _sk ? (_sizeLabelMap[_sk] || _sk) : (p.size || '50ml');
   var sizePrice = (_sk && window._pdpSizePrices && window._pdpSizePrices[_sk]) || p.price;
   var sizeOrig = (_sk && window._pdpSizeOriginalPrices && window._pdpSizeOriginalPrices[_sk] !== undefined)
