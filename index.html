@@ -689,9 +689,16 @@ footer::before{content:'SCENTY';font-family:'Bangers',cursive;font-size:clamp(80
 .pdp-type{font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#bbb;margin-bottom:14px;}
 .pdp-size-row{display:flex;align-items:center;gap:10px;padding-bottom:22px;margin-bottom:22px;border-bottom:1px solid #f0e6ec;}
 .pdp-size-label{font-size:10px;font-weight:900;letter-spacing:2px;text-transform:uppercase;color:#bbb;}
-.pdp-size-btn{padding:7px 18px;border-radius:20px;font-size:12px;font-weight:800;letter-spacing:1px;cursor:pointer;border:1.5px solid #e8dde4;background:transparent;color:#aaa;transition:all 0.18s;font-family:'Nunito',sans-serif;}
-.pdp-size-btn.active{border-color:var(--pink);background:var(--pink);color:#fff;box-shadow:0 4px 14px rgba(255,95,174,0.3);}
-.pdp-size-btn:hover:not(.active){border-color:#d0a0b8;color:#666;}
+.pdp-size-btn{padding:7px 18px;border-radius:20px;font-size:12px;font-weight:800;letter-spacing:1px;cursor:pointer;border:1.5px solid var(--pink);background:var(--pink);color:#fff;transition:all 0.18s;font-family:'Nunito',sans-serif;}
+.pdp-size-btn.active{box-shadow:0 4px 14px rgba(255,95,174,0.3);}
+.pdp-size-btn.active:not(.pdp-size-soldout){animation:pdpSizeGlowPulse 1.7s ease-in-out infinite;}
+.pdp-size-btn:hover:not(.pdp-size-soldout){filter:brightness(0.93);}
+.pdp-size-btn.pdp-size-soldout{text-decoration-color:#bbb;text-decoration-thickness:2px;}
+.pdp-size-btn.pdp-size-soldout.active{text-decoration-color:#FF5FAE;text-decoration-thickness:2px;}
+@keyframes pdpSizeGlowPulse{
+  0%,100%{box-shadow:0 4px 14px rgba(255,95,174,0.35);}
+  50%{box-shadow:0 6px 26px rgba(255,95,174,0.85);}
+}
 .pdp-tags{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:22px;}
 .pdp-tag{padding:5px 14px;border-radius:20px;font-size:11px;font-weight:800;letter-spacing:1px;border:1.5px solid;background:transparent;}
 .pdp-desc{font-size:14px;font-weight:500;color:#666;line-height:1.9;padding-bottom:22px;margin-bottom:0;border-bottom:1px solid #f0e6ec;word-break:break-word;overflow-wrap:break-word;}
@@ -4090,33 +4097,33 @@ AE:'United Arab Emirates',AF:'Afghanistan',AL:'Albania',AM:'Armenia',AO:'Angola'
       <div class="mf-group"><label class="mf-label">Governorate (محافظة)</label>
         <select class="mf-select" id="mfcity" onchange="updateOrderTotal()">
           <option value="">Select governorate</option>
-          <option value="الجيزة" data-shipping="75">الجيزة — Giza</option>
-          <option value="القاهرة" data-shipping="75">القاهرة — Cairo</option>
-          <option value="الإسماعيلية" data-shipping="90">الإسماعيلية — Ismailia</option>
-          <option value="البحيرة" data-shipping="90">البحيرة — Beheira</option>
-          <option value="الدقهلية" data-shipping="90">الدقهلية — Dakahlia</option>
-          <option value="السويس" data-shipping="90">السويس — Suez</option>
-          <option value="الشرقية" data-shipping="90">الشرقية — Sharqia</option>
-          <option value="الغربية" data-shipping="90">الغربية — Gharbia</option>
-          <option value="القليوبية" data-shipping="90">القليوبية — Qalyubia</option>
-          <option value="المنوفية" data-shipping="90">المنوفية — Monufia</option>
-          <option value="دمياط" data-shipping="90">دمياط — Damietta</option>
-          <option value="كفر الشيخ" data-shipping="90">كفر الشيخ — Kafr El Sheikh</option>
-          <option value="الإسكندرية" data-shipping="95">الإسكندرية — Alexandria</option>
-          <option value="بورسعيد" data-shipping="95">بورسعيد — Port Said</option>
-          <option value="أسوان" data-shipping="100">أسوان — Aswan</option>
-          <option value="أسيوط" data-shipping="100">أسيوط — Assiut</option>
-          <option value="الأقصر" data-shipping="100">الأقصر — Luxor</option>
-          <option value="الفيوم" data-shipping="100">الفيوم — Fayoum</option>
-          <option value="المنيا" data-shipping="100">المنيا — Minya</option>
-          <option value="بني سويف" data-shipping="100">بني سويف — Beni Suef</option>
-          <option value="سوهاج" data-shipping="100">سوهاج — Sohag</option>
-          <option value="قنا" data-shipping="100">قنا — Qena</option>
-          <option value="اطفيح" data-shipping="110">اطفيح — Atfih</option>
-          <option value="الغردقه" data-shipping="130">الغردقه — Hurghada</option>
-          <option value="الوادي الجديد" data-shipping="130">الوادي الجديد — New Valley</option>
-          <option value="البحر الاحمر" data-shipping="140">البحر الاحمر — Red Sea</option>
-          <option value="سيناء" data-shipping="160">سيناء — Sinai</option>
+          <option value="الجيزة" data-shipping="80">الجيزة — Giza</option>
+          <option value="القاهرة" data-shipping="80">القاهرة — Cairo</option>
+          <option value="الإسماعيلية" data-shipping="95">الإسماعيلية — Ismailia</option>
+          <option value="البحيرة" data-shipping="95">البحيرة — Beheira</option>
+          <option value="الدقهلية" data-shipping="95">الدقهلية — Dakahlia</option>
+          <option value="السويس" data-shipping="95">السويس — Suez</option>
+          <option value="الشرقية" data-shipping="95">الشرقية — Sharqia</option>
+          <option value="الغربية" data-shipping="95">الغربية — Gharbia</option>
+          <option value="القليوبية" data-shipping="95">القليوبية — Qalyubia</option>
+          <option value="المنوفية" data-shipping="95">المنوفية — Monufia</option>
+          <option value="دمياط" data-shipping="95">دمياط — Damietta</option>
+          <option value="كفر الشيخ" data-shipping="95">كفر الشيخ — Kafr El Sheikh</option>
+          <option value="الإسكندرية" data-shipping="100">الإسكندرية — Alexandria</option>
+          <option value="بورسعيد" data-shipping="100">بورسعيد — Port Said</option>
+          <option value="أسوان" data-shipping="105">أسوان — Aswan</option>
+          <option value="أسيوط" data-shipping="105">أسيوط — Assiut</option>
+          <option value="الأقصر" data-shipping="105">الأقصر — Luxor</option>
+          <option value="الفيوم" data-shipping="105">الفيوم — Fayoum</option>
+          <option value="المنيا" data-shipping="105">المنيا — Minya</option>
+          <option value="بني سويف" data-shipping="105">بني سويف — Beni Suef</option>
+          <option value="سوهاج" data-shipping="105">سوهاج — Sohag</option>
+          <option value="قنا" data-shipping="105">قنا — Qena</option>
+          <option value="اطفيح" data-shipping="115">اطفيح — Atfih</option>
+          <option value="الغردقه" data-shipping="135">الغردقه — Hurghada</option>
+          <option value="الوادي الجديد" data-shipping="135">الوادي الجديد — New Valley</option>
+          <option value="البحر الاحمر" data-shipping="145">البحر الاحمر — Red Sea</option>
+          <option value="سيناء" data-shipping="165">سيناء — Sinai</option>
         </select>
       </div>
       <div class="mf-group"><label class="mf-label">Address</label><textarea class="mf-textarea" id="mfaddress" placeholder="Street, building, apartment..."></textarea></div>
@@ -5306,8 +5313,8 @@ window.cartRawTotal=cartRawTotal;
 
 function cartPromoExcludedTotal(){
   const bundleLineDiscounts=getFixedBundleDiscount().lineDiscounts;
-  return cart.filter(function(i){ return i.size==='3ml' || i.size==='5ml' || i._fromBundle || getOfferBreakdown(i).freeQty>0; })
-             .reduce(function(s,i){ return s+(cartLineTotal(i)-(i._fromBundle?(bundleLineDiscounts.get(i)||0):0)); }, 0);
+  return cart.filter(function(i){ return i.size==='3ml' || i.size==='5ml' || i._fromBundle || bundleLineDiscounts.has(i) || getOfferBreakdown(i).freeQty>0; })
+             .reduce(function(s,i){ return s+(cartLineTotal(i)-(bundleLineDiscounts.get(i)||0)); }, 0);
 }
 window.cartPromoExcludedTotal=cartPromoExcludedTotal;
 
@@ -5553,7 +5560,8 @@ function updateOrderTotal(){
       let note = '';
       if(excluded>0){
         const hasDecants = cart.some(i => i.size==='3ml' || i.size==='5ml');
-        const hasBundle = cart.some(i => i._fromBundle);
+        const bundleLineDiscountsNow=getFixedBundleDiscount().lineDiscounts;
+        const hasBundle = cart.some(i => i._fromBundle || bundleLineDiscountsNow.has(i));
         const hasOffer = cart.some(i => getOfferBreakdown(i).freeQty>0);
         const labels = [];
         if(hasDecants) labels.push('decants');
@@ -5590,7 +5598,8 @@ async function applyPromo(){
     const excludedNow = (promo.type==='percent'||promo.type==='fixed') ? cartPromoExcludedTotal() : 0;
     const eligibleNow = (promo.type==='percent'||promo.type==='fixed') ? Math.max(0, cartRawTotal()-excludedNow) : 1;
     const hasDecants = cart.some(i => i.size==='3ml' || i.size==='5ml');
-    const hasBundle = cart.some(i => i._fromBundle);
+    const bundleLineDiscountsApply=getFixedBundleDiscount().lineDiscounts;
+    const hasBundle = cart.some(i => i._fromBundle || bundleLineDiscountsApply.has(i));
     const hasOffer = cart.some(i => getOfferBreakdown(i).freeQty>0);
     const exclusionLabels = [];
     if(hasDecants) exclusionLabels.push('3ml/5ml decants');
@@ -5823,7 +5832,7 @@ function openPDP(id, opts) {
   })();
   window._pdpSizePrices = p.sizePrices || {};
   window._pdpSizeOriginalPrices = p.sizeOriginalPrices || {};
-  window._pdpSoldOutSizes = p.soldOutSizes || {};
+  window._pdpSoldOutSizes = p.soldOut ? Object.assign({}, p.soldOutSizes||{}, {decant3:true,decant:true,'8ml':true,'10ml':true,'15ml':true,'30ml':true,'50ml':true,'100ml':true,'200ml':true}) : (p.soldOutSizes || {});
   var _addBtn = document.getElementById('pdpBtnBag');
   if(_addBtn && !_addBtn.dataset.originalText) _addBtn.dataset.originalText = _addBtn.textContent;
   window._pdpBasePrice = p.price;
@@ -5847,11 +5856,13 @@ function openPDP(id, opts) {
     var isSoldOut = sizeKey && _sos[sizeKey];
     if(isSoldOut){
       btn.disabled = false;
-      btn.style.cssText = 'opacity:0.55;text-decoration:line-through;background:#f5f5f5;color:#999;border-color:#ddd;';
+      btn.style.cssText = 'opacity:0.55;text-decoration-line:line-through;background:#f5f5f5;color:#999;border-color:#ddd;';
+      btn.classList.add('pdp-size-soldout');
       btn.title = 'Sold Out — tap to preview';
     } else {
       btn.disabled = false;
       btn.style.cssText = '';
+      btn.classList.remove('pdp-size-soldout');
       btn.title = '';
     }
   });
@@ -5962,9 +5973,9 @@ function openPDP(id, opts) {
   const countdownWrap = document.getElementById('offerCountdownWrap');
   if(p.soldOut){
     buyBtn.disabled=true; buyBtn.style.opacity='1'; buyBtn.style.cursor='not-allowed'; buyBtn.textContent='SOLD OUT';
-    buyBtn.style.background='#ff4a6b'; buyBtn.style.color='#fff'; buyBtn.style.border='2px solid #ff4a6b'; buyBtn.style.filter='grayscale(0.55) brightness(0.92)';
+    buyBtn.style.background=(p.color||'var(--pink)'); buyBtn.style.color='#fff'; buyBtn.style.border='none'; buyBtn.style.filter='grayscale(0.75) brightness(0.85)';
     bagBtn.disabled=true; bagBtn.style.opacity='1'; bagBtn.style.cursor='not-allowed'; bagBtn.textContent='SOLD OUT';
-    bagBtn.style.background='#ff4a6b'; bagBtn.style.color='#fff'; bagBtn.style.borderColor='#ff4a6b'; bagBtn.style.filter='grayscale(0.55) brightness(0.92)';
+    bagBtn.style.background=''; bagBtn.style.borderColor=(p.color||'var(--dark)'); bagBtn.style.color=(p.color||'var(--dark)'); bagBtn.style.filter='grayscale(0.75) brightness(0.85)';
     bagBtn.onmouseenter=null; bagBtn.onmouseleave=null;
     if(countdownWrap) countdownWrap.style.display = 'none';
   } else {
@@ -6065,7 +6076,7 @@ window.pdpSelectSize = function(size, btn) {
     if(!bagBtn.dataset.originalText) bagBtn.dataset.originalText = bagBtn.textContent;
     if(isSizeSoldOut){
       bagBtn.disabled = true; bagBtn.style.opacity='1'; bagBtn.style.cursor='not-allowed'; bagBtn.textContent='SOLD OUT';
-      bagBtn.style.background='#ff4a6b'; bagBtn.style.color='#fff'; bagBtn.style.borderColor='#ff4a6b'; bagBtn.style.filter='grayscale(0.55) brightness(0.92)';
+      bagBtn.style.background=''; bagBtn.style.borderColor=(pdpCurrentProduct?pdpCurrentProduct.color:'var(--dark)'); bagBtn.style.color=(pdpCurrentProduct?pdpCurrentProduct.color:'var(--dark)'); bagBtn.style.filter='grayscale(0.75) brightness(0.85)';
       bagBtn.onmouseenter=null; bagBtn.onmouseleave=null;
     } else if(!pdpCurrentProduct || !pdpCurrentProduct.soldOut){
       bagBtn.disabled = false; bagBtn.style.opacity='1'; bagBtn.style.cursor='pointer'; bagBtn.style.filter=''; bagBtn.textContent = bagBtn.dataset.originalText || '+ Add to Bag';
@@ -6079,7 +6090,7 @@ window.pdpSelectSize = function(size, btn) {
     if(!buyBtn.dataset.originalText) buyBtn.dataset.originalText = buyBtn.textContent;
     if(isSizeSoldOut){
       buyBtn.disabled = true; buyBtn.style.opacity='1'; buyBtn.style.cursor='not-allowed'; buyBtn.textContent='SOLD OUT';
-      buyBtn.style.background='#ff4a6b'; buyBtn.style.color='#fff'; buyBtn.style.border='2px solid #ff4a6b'; buyBtn.style.filter='grayscale(0.55) brightness(0.92)';
+      buyBtn.style.background=(pdpCurrentProduct?pdpCurrentProduct.color:'var(--pink)'); buyBtn.style.color='#fff'; buyBtn.style.border='none'; buyBtn.style.filter='grayscale(0.75) brightness(0.85)';
     } else if(!pdpCurrentProduct || !pdpCurrentProduct.soldOut){
       buyBtn.disabled = false; buyBtn.style.opacity='1'; buyBtn.style.cursor='pointer'; buyBtn.style.filter=''; buyBtn.textContent = buyBtn.dataset.originalText || 'Buy Now →';
       buyBtn.style.background = pdpCurrentProduct?pdpCurrentProduct.color:''; buyBtn.style.color=''; buyBtn.style.border='';
