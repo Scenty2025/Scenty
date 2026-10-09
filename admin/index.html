@@ -2928,7 +2928,7 @@ window.openAddModal = function(){
   try{window.removeCoverImg();}catch(e){}
   try{window.removeIllustImg();}catch(e){}
   window._sizeImgs={'decant3':null,'decant3b':null,'decant3c':null,'decant':null,'decant2':null,'decant2c':null,'30ml':null,'30ml2':null,'50ml':null,'50ml2':null,'100ml':null,'100ml2':null}; ['decant3','decant3b','decant3c','decant','decant2','decant2c','8ml','8ml2','10ml','10ml2','10ml3','15ml','15ml2','15ml3','30ml','30ml2','50ml','50ml2','100ml','100ml2','200ml','200ml2'].forEach(function(sz){try{removeSizeSlot(sz);}catch(e){}});
-  ['pPriceDecant3','pPriceDecant','pPrice5ml','pPrice8ml','pPrice30','pPrice50','pPrice100','pPrice200ml','pPrice10','pPrice15','pOrigDecant3','pOrigDecant','pOrig5ml','pOrig8ml','pOrig30','pOrig50','pOrig100','pOrig200ml','pOrig10','pOrig15'].forEach(function(id){document.getElementById(id).value='';});
+  ['pPriceDecant3','pPriceDecant','pPrice8ml','pPrice30','pPrice50','pPrice100','pPrice200ml','pPrice10','pPrice15','pOrigDecant3','pOrigDecant','pOrig8ml','pOrig30','pOrig50','pOrig100','pOrig200ml','pOrig10','pOrig15'].forEach(function(id){var el=document.getElementById(id); if(el) el.value='';});
   const soldOutCb = document.getElementById("pSoldOut");
   if (soldOutCb) {
     soldOutCb.checked = false;
