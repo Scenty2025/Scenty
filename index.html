@@ -6565,7 +6565,7 @@ function renderAlsoLike(currentProduct) {
   if (manualIds.length) {
     picks = manualIds
       .map(id => all.find(p => p.id === id || p.firestoreId === id))
-      .filter(p => p && p.id !== currentProduct.id && !p.soldOut)
+      .filter(p => p && p.id !== currentProduct.id)
       .slice(0, 4);
   }
 
@@ -6578,8 +6578,8 @@ function renderAlsoLike(currentProduct) {
       else if(t==='original'||t==='creation'){ if(_sameTypes.indexOf('original')===-1)_sameTypes.push('original'); if(_sameTypes.indexOf('creation')===-1)_sameTypes.push('creation'); }
       else if(_sameTypes.indexOf(t)===-1) _sameTypes.push(t);
     });
-    const sameType = all.filter(p => p.id !== currentProduct.id && productHasAnyCategory(p,_sameTypes) && !p.soldOut);
-    const others = all.filter(p => p.id !== currentProduct.id && !productHasAnyCategory(p,currentCats) && !p.soldOut);
+    const sameType = all.filter(p => p.id !== currentProduct.id && productHasAnyCategory(p,_sameTypes));
+    const others = all.filter(p => p.id !== currentProduct.id && !productHasAnyCategory(p,currentCats));
     picks = [...sameType, ...others].slice(0, 4);
   }
 
