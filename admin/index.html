@@ -537,7 +537,7 @@ window.showPanel = function(name, el) {
   if (name === "dashboard") updateAll();
   if (name === "orders") loadAdminOrders();
   if (name === "products") { renderProducts(); loadCountdownTimers(); }
-  if (name === "settings") { loadPromoCodes(); loadStoreInfo(); loadShippingThreshold(); }
+  if (name === "settings") { loadPromoCodes(); loadStoreInfo(); loadShippingThreshold(); loadChargeHigher(); }
   if (name === "announcements") loadAnnouncementSettings();
   if (name === "analytics") loadAnalytics();
   if (name === "reviews") loadAdminReviews();
@@ -704,6 +704,30 @@ window.saveShippingThreshold = async function(){
   try{
     await setDoc(doc(db,'settings','shipping'), { freeShippingEnabled: enabled, freeShippingThreshold: threshold||0 }, { merge:true });
     showToast(enabled ? '✅ Flash sale free shipping enabled!' : '✅ Saved (disabled)');
+  }catch(e){ showToast('❌ Error: '+e.message); }
+};
+
+// ===== BUY X GET Y: CHARGE THE PRICIER ITEMS TOGGLE =====
+async function loadChargeHigher(){
+  try{
+    const snap = await getDoc(doc(db,'settings','offers'));
+    const d = snap.exists() ? snap.data() : {};
+    document.getElementById('chargeHigherToggle').checked = !!d.chargeHigherFirst;
+    document.getElementById('bogoToggle').checked = !!d.bogoEnabled;
+    document.getElementById('b2g1Toggle').checked = !!d.b2g1Enabled && !d.bogoEnabled;
+    document.getElementById('bogoDecantToggle').checked = !!d.bogoIncludeDecants;
+  }catch(e){ console.warn('loadChargeHigher error',e); }
+}
+window.saveChargeHigher = async function(){
+  const on = document.getElementById('chargeHigherToggle').checked;
+  try{
+    await setDoc(doc(db,'settings','offers'), {
+      chargeHigherFirst: on,
+      bogoEnabled: document.getElementById('bogoToggle').checked,
+      b2g1Enabled: document.getElementById('b2g1Toggle').checked,
+      bogoIncludeDecants: document.getElementById('bogoDecantToggle').checked
+    }, { merge:true });
+    showToast('✅ Offer settings saved');
   }catch(e){ showToast('❌ Error: '+e.message); }
 };
 
@@ -2069,6 +2093,34 @@ tr:hover td{background:rgba(255,255,255,0.03);}
             </div>
             <button class="add-btn" style="margin:0;height:44px;" onclick="saveShippingThreshold()">Save</button>
           </div>
+        </div>
+
+        <!-- GIFT / BUY X GET Y: CHARGE THE PRICIER ITEMS -->
+        <div class="settings-card" style="grid-column:1/-1;">
+          <div class="settings-card-title">🎁 Buy X Get Y — Charge the pricier items</div>
+          <div class="settings-card-sub">When ON: in "Buy X Get Y" offers and Free Gift bundles, the customer pays for the more expensive items and the cheapest ones become the free gift. Quantities (X and Y) still come from each offer / bundle. When OFF: works exactly as before.</div>
+          <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:8px;">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:800;color:var(--text);">
+              <input type="checkbox" id="chargeHigherToggle" style="width:18px;height:18px;cursor:pointer;">
+              Charge the pricier items, cheapest is free
+            </label>
+          </div>
+          <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border,#333);">
+            <div class="settings-card-title" style="font-size:14px;">🛍️ Buy 1 Get 1 Free (store-wide)</div>
+            <div class="settings-card-sub">Only one of the two can be ON at a time. Buy 1 Get 1: for every 2 products in the cart, the customer pays for the pricier one and the cheaper one is free. Buy 2 Get 1: for every 3 products, the cheapest one is free. Products already inside a bundle or a Buy X Get Y offer are not counted.</div>
+            <div style="display:flex;align-items:center;gap:24px;flex-wrap:wrap;margin-top:8px;">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:800;color:var(--text);">
+                <input type="checkbox" id="bogoToggle" style="width:18px;height:18px;cursor:pointer;" onchange="if(this.checked)document.getElementById('b2g1Toggle').checked=false;"> Enable Buy 1 Get 1 Free
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:800;color:var(--text);">
+                <input type="checkbox" id="b2g1Toggle" style="width:18px;height:18px;cursor:pointer;" onchange="if(this.checked)document.getElementById('bogoToggle').checked=false;"> Enable Buy 2 Get 1 Free
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:800;color:var(--text);">
+                <input type="checkbox" id="bogoDecantToggle" style="width:18px;height:18px;cursor:pointer;"> Include decants (3ml / 5ml)
+              </label>
+            </div>
+          </div>
+          <button class="add-btn" style="margin:14px 0 0;height:44px;" onclick="saveChargeHigher()">Save</button>
         </div>
 
         <!-- PROMO CODES CARD -->

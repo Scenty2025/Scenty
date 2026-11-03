@@ -610,6 +610,7 @@ footer::before{content:'SCENTY';font-family:'Bangers',cursive;font-size:clamp(80
 .os-item{display:flex;justify-content:space-between;font-size:14px;font-weight:700;margin-bottom:8px;}
 .os-total{display:flex;justify-content:space-between;border-top:2px solid #eee;padding-top:14px;margin-top:8px;}
 .os-total-val{font-family:'RC Black Italic',sans-serif;font-weight:900;font-style:italic;font-size:30px;color:var(--pink);}
+.os-offer-tag{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:10px;padding:8px 12px;border:2px dashed var(--pink);border-radius:14px;color:var(--pink);font-weight:800;font-size:12px;letter-spacing:.5px;text-transform:uppercase;}
 .mf-group{margin-bottom:18px;}
 .mf-label{font-size:10px;font-weight:900;letter-spacing:2px;text-transform:uppercase;color:#ccc;margin-bottom:8px;display:block;transition:color 0.2s;}
 .mf-group:focus-within .mf-label{color:var(--pink);}
@@ -5202,8 +5203,40 @@ window.priceHTML = priceHTML;
 // ===== CART =====
 // Offer helper: "buy X get Y free" — for every `buyQty` units in the cart line,
 // `giftQty` of them are free. Returns {freeQty, paidQty, lineTotal}.
+function ghfOn(){ return !!window._giftHigherFirst; }
+window.ghfOn=ghfOn;
+// Admin toggle ON: units of all cart lines sharing the same "buy X get Y" offer are pooled,
+// and the cheapest units become the free ones (customer pays for the pricier ones).
+function getOfferAllocation(){
+  const map=new Map();
+  if(!ghfOn()) return map;
+  const groups={};
+  cart.forEach(function(i){
+    const o=i.offer;
+    if(o && o.enabled && o.buyQty>0 && o.giftQty>0 && o.giftQty<o.buyQty){
+      const k=o.buyQty+'|'+o.giftQty;
+      if(!groups[k]) groups[k]={o:o,lines:[]};
+      groups[k].lines.push(i);
+    }
+  });
+  Object.keys(groups).forEach(function(k){
+    const g=groups[k];
+    const total=g.lines.reduce(function(s,i){ return s+i.qty; },0);
+    let free=Math.floor(total/g.o.buyQty)*g.o.giftQty;
+    g.lines.slice().sort(function(a,b){ return a.price-b.price; }).forEach(function(i){
+      const f=Math.min(i.qty,free);
+      if(f>0) map.set(i,f);
+      free-=f;
+    });
+  });
+  return map;
+}
 function getOfferBreakdown(i){
   const o=i.offer;
+  if(ghfOn() && o && o.enabled && o.buyQty>0 && o.giftQty>0 && o.giftQty<o.buyQty){
+    const freeQty=getOfferAllocation().get(i)||0;
+    return {freeQty, paidQty:i.qty-freeQty, lineTotal:(i.qty-freeQty)*i.price};
+  }
   if(o && o.enabled && o.buyQty>0 && o.giftQty>0 && o.giftQty<o.buyQty && i.qty>=o.buyQty){
     const sets=Math.floor(i.qty/o.buyQty);
     const freeQty=sets*o.giftQty;
@@ -5249,7 +5282,7 @@ function getBundleGiftLines(){
 }
 window.getBundleGiftLines=getBundleGiftLines;
 
-function getFixedBundleDiscount(){
+function getFixedBundleDiscountCore(){
   let totalDiscount=0; const applied=[];
   const lineDiscounts=new Map(); // cartLine object -> EGP discount attributable to it
   const cartSubtotal=cart.reduce((s,i)=>s+cartLineTotal(i),0);
@@ -5302,11 +5335,88 @@ function getFixedBundleDiscount(){
   }
   return { totalDiscount, applied, lineDiscounts };
 }
+// Store-wide "Buy 1 Get 1 Free" (admin toggle): every 2 eligible units in the cart -> the cheaper one is free,
+// the customer pays for the pricier one. Lines already in a bundle / buy-X-get-Y offer are left out.
+function getFixedBundleDiscount(){
+  const r=getFixedBundleDiscountCore();
+  const st=window._bogoSettings;
+  if(!st || (!st.enabled && !st.b2g1)) return r;
+  const groupSize = st.enabled ? 2 : 3; // Buy 1 Get 1 (every 2) takes priority; otherwise Buy 2 Get 1 (every 3)
+  const pool=cart.filter(function(i){
+    return !i._fromBundle && !r.lineDiscounts.has(i) && getOfferBreakdown(i).freeQty===0
+      && (st.includeDecants || !(i.size==='3ml' || i.size==='5ml'));
+  });
+  const units=pool.reduce(function(s,i){ return s+i.qty; },0);
+  let free=Math.floor(units/groupSize);
+  if(free<=0) return r;
+  const sets=free; let disc=0;
+  pool.slice().sort(function(a,b){ return a.price-b.price; }).forEach(function(i){
+    const f=Math.min(i.qty,free);
+    if(f>0){ const d=f*i.price; r.lineDiscounts.set(i,d); disc+=d; free-=f; }
+  });
+  if(disc>0){
+    r.totalDiscount+=disc;
+    r.applied.push({ name:(groupSize===2?'Buy 1 Get 1 Free':'Buy 2 Get 1 Free'), sets:sets, totalSavings:disc });
+  }
+  return r;
+}
 window.getFixedBundleDiscount=getFixedBundleDiscount;
+// Name of the store-wide offer currently switched ON in admin (only one can be on at a time).
+function getActiveStoreOfferName(){
+  const st=window._bogoSettings;
+  if(!st) return '';
+  if(st.enabled) return 'Buy 1 Get 1 Free';
+  if(st.b2g1) return 'Buy 2 Get 1 Free';
+  return '';
+}
+function renderOrderOfferTag(){
+  const box=document.getElementById('osOfferRow');
+  if(!box) return;
+  const name=getActiveStoreOfferName();
+  box.innerHTML = name ? '<div class="os-offer-tag">🎁 '+name+'</div>' : '';
+}
+window.renderOrderOfferTag=renderOrderOfferTag;
+
+// Admin toggle ON: for "buy X get Y free" bundles, the cheapest units among (trigger + gift) are the free
+// ones. If the gift costs more than the trigger, the customer pays the extra computed here.
+function getGiftUpgrade(){
+  const out={total:0,items:[],byBundle:{}};
+  if(!ghfOn() || !Array.isArray(window.bundles)) return out;
+  window.bundles.forEach(function(b){
+    if(!b || b.enabled===false || b.type!=='gift' || !b.gift) return;
+    const g=b.gift;
+    const triggerId=bsResolveBundleProductId(g.triggerProductId);
+    const tLines=cart.filter(function(i){ return i.id===triggerId; });
+    const haveQty=tLines.reduce(function(s,i){ return s+i.qty; },0);
+    const tq=g.triggerQty||1, fq=g.freeQty||1;
+    const sets=Math.floor(haveQty/tq);
+    if(sets<=0) return;
+    const fp=allProducts().find(function(x){ return x.id===g.freeProductId || x.firestoreId===g.freeProductId; });
+    if(!fp) return;
+    const gp=(fp.sizePrices && fp.sizePrices[g.freeSize]) || fp.price;
+    const units=[];
+    tLines.forEach(function(i){ for(let k=0;k<i.qty;k++) units.push(i.price); });
+    units.sort(function(a,b){ return b-a; });
+    const tPrices=units.slice(0,sets*tq);
+    const pool=tPrices.slice();
+    for(let k=0;k<sets*fq;k++) pool.push(gp);
+    pool.sort(function(a,b){ return a-b; });
+    const sum=function(a){ return a.reduce(function(s,x){ return s+x; },0); };
+    const paidNew=sum(pool)-sum(pool.slice(0,sets*fq));
+    const extra=Math.max(0, paidNew-sum(tPrices));
+    if(extra>0){
+      out.total+=extra;
+      out.items.push({name:b.name, extra:extra});
+      out.byBundle[b.id||b.firestoreId]=extra;
+    }
+  });
+  return out;
+}
+window.getGiftUpgrade=getGiftUpgrade;
 
 function cartRawTotal(){
   const base=cart.reduce((s,i)=>s+cartLineTotal(i),0);
-  return Math.max(0, base-getFixedBundleDiscount().totalDiscount);
+  return Math.max(0, base-getFixedBundleDiscount().totalDiscount)+getGiftUpgrade().total;
 }
 window.cartRawTotal=cartRawTotal;
 
@@ -5314,7 +5424,7 @@ window.cartRawTotal=cartRawTotal;
 function cartPromoExcludedTotal(){
   const bundleLineDiscounts=getFixedBundleDiscount().lineDiscounts;
   return cart.filter(function(i){ return i.size==='3ml' || i.size==='5ml' || i._fromBundle || bundleLineDiscounts.has(i) || getOfferBreakdown(i).freeQty>0; })
-             .reduce(function(s,i){ return s+(cartLineTotal(i)-(bundleLineDiscounts.get(i)||0)); }, 0);
+             .reduce(function(s,i){ return s+(cartLineTotal(i)-(bundleLineDiscounts.get(i)||0)); }, 0)+getGiftUpgrade().total;
 }
 window.cartPromoExcludedTotal=cartPromoExcludedTotal;
 
@@ -5395,7 +5505,8 @@ function getCartSavingsSummary(){
       const fp=allProducts().find(function(x){ return x.id===g.freeProductId || x.firestoreId===g.freeProductId; });
       if(!fp) return;
       const unitPrice=(fp.sizePrices && fp.sizePrices[g.freeSize]) || fp.price;
-      items.push({ label:b.name, amount:Math.round(unitPrice*freeQty) });
+      const upExtra=getGiftUpgrade().byBundle[b.id||b.firestoreId]||0;
+      items.push({ label:b.name, amount:Math.max(0,Math.round(unitPrice*freeQty-upExtra)) });
     });
   }
   return items;
@@ -5432,6 +5543,9 @@ function renderCartItems(){
         <div class="cart-item-price" style="color:${g.color}">FREE</div>
       </div>
     </div>`).join('');
+  html += getGiftUpgrade().items.map(function(u){
+    return `<div style="border-radius:16px;padding:10px 16px;margin-top:12px;background:#fff7e6;color:#a8650a;font-weight:800;font-size:12px;text-align:center;">⚖️ ${u.name}: الأغلى بيتحاسب والأرخص هدية — فرق السعر +EGP ${Math.round(u.extra)}</div>`;
+  }).join('');
   const savings=getCartSavingsSummary();
   html += savings.map(function(s){
     return `<div style="border:2px dashed var(--pink);border-radius:16px;padding:12px 16px;margin-top:12px;color:var(--pink);font-weight:800;font-size:13px;text-align:center;">🎁 ${s.label}: -EGP ${s.amount}</div>`;
@@ -5500,7 +5614,9 @@ function openOrderModal(){
   const _bundleLineDiscounts=getFixedBundleDiscount().lineDiscounts;
   let osHtml=`<div class="os-title">Order Summary</div>${cart.map(i=>{const ob=getOfferBreakdown(i);const giftNote=ob.freeQty>0?` <span style="color:#1a9c5e;font-weight:800;">(🎁 ${ob.freeQty} هدية)</span>`:'';const shownTotal=Math.round(ob.lineTotal-(_bundleLineDiscounts.get(i)||0));return `<div class="os-item"><span>${i.name} × ${i.qty}${giftNote}</span><span>EGP ${shownTotal}</span></div>`;}).join('')}`;
   osHtml += giftLines.map(g=>`<div class="os-item"><span>${g.name} × ${g.qty} <span style="color:#1a9c5e;font-weight:800;">(🎁 هدية)</span></span><span>FREE</span></div>`).join('');
+  osHtml += getGiftUpgrade().items.map(u=>`<div class="os-item"><span>${u.name} <span style="color:#a8650a;font-weight:800;">(فرق سعر الهدية)</span></span><span>EGP ${Math.round(u.extra)}</span></div>`).join('');
   osHtml += `<div id="osDiscountRow"></div>`;
+  osHtml += `<div id="osOfferRow"></div>`;
   osHtml += `<div class="os-total"><div style="font-size:13px;font-weight:900;letter-spacing:1px;text-transform:uppercase">Total</div><div class="os-total-val" id="osTotalVal">EGP ${total}</div></div>`;
   document.getElementById('orderSummaryBox').innerHTML=osHtml;
   updateOrderTotal();
@@ -5543,6 +5659,7 @@ function updateOrderTotal(){
   const el=document.getElementById('orderTotalValue');
   const osEl=document.getElementById('osTotalVal');
   const discRowEl=document.getElementById('osDiscountRow');
+  renderOrderOfferTag();
   if(subEl) subEl.textContent='EGP '+raw;
   if(discRowBox){
     if(discountAmt>0){
@@ -5653,6 +5770,7 @@ async function placeOrder(){
     const fixedInfo=getFixedBundleDiscount();
     let itemsSummary=cart.map(i=>{const ob=getOfferBreakdown(i);return `${i.name} x${i.qty} (${i.size})${ob.freeQty>0?` [${ob.freeQty} free]`:''}`;}).join(' | ');
     if(giftLines.length) itemsSummary += ' | '+giftLines.map(g=>`${g.name} x${g.qty} (${g.size}) [BUNDLE FREE GIFT]`).join(' | ');
+    getGiftUpgrade().items.forEach(function(u){ itemsSummary += ` | Gift price difference: ${u.name} (+EGP ${Math.round(u.extra)})`; });
     if(fixedInfo.applied.length) itemsSummary += ' | '+fixedInfo.applied.map(a=>`Bundle: ${a.name} (-EGP ${a.totalSavings})`).join(' | ');
     const rawTotal=cartRawTotal();
     let subtotal=rawTotal;
@@ -7070,6 +7188,18 @@ window._orderBy = orderBy;
       window._bannerImageUrl = window._bannerImageUrlDesktop; // back-compat for any other reader
     }
   }catch(e){ console.warn('Announcements load failed',e); }
+})();
+
+// Load "charge the pricier item, cheapest is free" toggle (admin → Settings)
+(async()=>{
+  try{
+    const snap = await getDoc(doc(_db,'settings','offers'));
+    const od = snap.exists() ? snap.data() : {};
+    window._giftHigherFirst = !!od.chargeHigherFirst;
+    window._bogoSettings = { enabled: !!od.bogoEnabled, b2g1: !!od.b2g1Enabled, includeDecants: !!od.bogoIncludeDecants };
+    if(typeof updateCart==='function') updateCart();
+    if(window.updateOrderTotal) window.updateOrderTotal();
+  }catch(e){ console.warn('Offers settings load failed',e); }
 })();
 
 // Load flash-sale free-shipping threshold (admin → Settings)
