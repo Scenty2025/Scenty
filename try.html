@@ -5281,7 +5281,7 @@ function getBundleGiftLines(){
 }
 window.getBundleGiftLines=getBundleGiftLines;
 
-function getFixedBundleDiscount(){
+function getFixedBundleDiscountCore(){
   let totalDiscount=0; const applied=[];
   const lineDiscounts=new Map(); // cartLine object -> EGP discount attributable to it
   const cartSubtotal=cart.reduce((s,i)=>s+cartLineTotal(i),0);
@@ -5333,6 +5333,30 @@ function getFixedBundleDiscount(){
     });
   }
   return { totalDiscount, applied, lineDiscounts };
+}
+// Store-wide "Buy 1 Get 1 Free" (admin toggle): every 2 eligible units in the cart -> the cheaper one is free,
+// the customer pays for the pricier one. Lines already in a bundle / buy-X-get-Y offer are left out.
+function getFixedBundleDiscount(){
+  const r=getFixedBundleDiscountCore();
+  const st=window._bogoSettings;
+  if(!st || !st.enabled) return r;
+  const pool=cart.filter(function(i){
+    return !i._fromBundle && !r.lineDiscounts.has(i) && getOfferBreakdown(i).freeQty===0
+      && (st.includeDecants || !(i.size==='3ml' || i.size==='5ml'));
+  });
+  const units=pool.reduce(function(s,i){ return s+i.qty; },0);
+  let free=Math.floor(units/2);
+  if(free<=0) return r;
+  const sets=free; let disc=0;
+  pool.slice().sort(function(a,b){ return a.price-b.price; }).forEach(function(i){
+    const f=Math.min(i.qty,free);
+    if(f>0){ const d=f*i.price; r.lineDiscounts.set(i,d); disc+=d; free-=f; }
+  });
+  if(disc>0){
+    r.totalDiscount+=disc;
+    r.applied.push({ name:'Buy 1 Get 1 Free', sets:sets, totalSavings:disc });
+  }
+  return r;
 }
 window.getFixedBundleDiscount=getFixedBundleDiscount;
 
@@ -7151,7 +7175,9 @@ window._orderBy = orderBy;
 (async()=>{
   try{
     const snap = await getDoc(doc(_db,'settings','offers'));
-    window._giftHigherFirst = snap.exists() ? !!snap.data().chargeHigherFirst : false;
+    const od = snap.exists() ? snap.data() : {};
+    window._giftHigherFirst = !!od.chargeHigherFirst;
+    window._bogoSettings = { enabled: !!od.bogoEnabled, includeDecants: !!od.bogoIncludeDecants };
     if(typeof updateCart==='function') updateCart();
     if(window.updateOrderTotal) window.updateOrderTotal();
   }catch(e){ console.warn('Offers settings load failed',e); }
