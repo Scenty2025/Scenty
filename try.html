@@ -5339,13 +5339,14 @@ function getFixedBundleDiscountCore(){
 function getFixedBundleDiscount(){
   const r=getFixedBundleDiscountCore();
   const st=window._bogoSettings;
-  if(!st || !st.enabled) return r;
+  if(!st || (!st.enabled && !st.b2g1)) return r;
+  const groupSize = st.enabled ? 2 : 3; // Buy 1 Get 1 (every 2) takes priority; otherwise Buy 2 Get 1 (every 3)
   const pool=cart.filter(function(i){
     return !i._fromBundle && !r.lineDiscounts.has(i) && getOfferBreakdown(i).freeQty===0
       && (st.includeDecants || !(i.size==='3ml' || i.size==='5ml'));
   });
   const units=pool.reduce(function(s,i){ return s+i.qty; },0);
-  let free=Math.floor(units/2);
+  let free=Math.floor(units/groupSize);
   if(free<=0) return r;
   const sets=free; let disc=0;
   pool.slice().sort(function(a,b){ return a.price-b.price; }).forEach(function(i){
@@ -5354,7 +5355,7 @@ function getFixedBundleDiscount(){
   });
   if(disc>0){
     r.totalDiscount+=disc;
-    r.applied.push({ name:'Buy 1 Get 1 Free', sets:sets, totalSavings:disc });
+    r.applied.push({ name:(groupSize===2?'Buy 1 Get 1 Free':'Buy 2 Get 1 Free'), sets:sets, totalSavings:disc });
   }
   return r;
 }
@@ -7177,7 +7178,7 @@ window._orderBy = orderBy;
     const snap = await getDoc(doc(_db,'settings','offers'));
     const od = snap.exists() ? snap.data() : {};
     window._giftHigherFirst = !!od.chargeHigherFirst;
-    window._bogoSettings = { enabled: !!od.bogoEnabled, includeDecants: !!od.bogoIncludeDecants };
+    window._bogoSettings = { enabled: !!od.bogoEnabled, b2g1: !!od.b2g1Enabled, includeDecants: !!od.bogoIncludeDecants };
     if(typeof updateCart==='function') updateCart();
     if(window.updateOrderTotal) window.updateOrderTotal();
   }catch(e){ console.warn('Offers settings load failed',e); }
