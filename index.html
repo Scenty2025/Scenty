@@ -610,7 +610,6 @@ footer::before{content:'SCENTY';font-family:'Bangers',cursive;font-size:clamp(80
 .os-item{display:flex;justify-content:space-between;font-size:14px;font-weight:700;margin-bottom:8px;}
 .os-total{display:flex;justify-content:space-between;border-top:2px solid #eee;padding-top:14px;margin-top:8px;}
 .os-total-val{font-family:'RC Black Italic',sans-serif;font-weight:900;font-style:italic;font-size:30px;color:var(--pink);}
-.os-offer-tag{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:10px;padding:8px 12px;border:2px dashed var(--pink);border-radius:14px;color:var(--pink);font-weight:800;font-size:12px;letter-spacing:.5px;text-transform:uppercase;}
 .mf-group{margin-bottom:18px;}
 .mf-label{font-size:10px;font-weight:900;letter-spacing:2px;text-transform:uppercase;color:#ccc;margin-bottom:8px;display:block;transition:color 0.2s;}
 .mf-group:focus-within .mf-label{color:var(--pink);}
@@ -671,6 +670,9 @@ footer::before{content:'SCENTY';font-family:'Bangers',cursive;font-size:clamp(80
 .pdp-main-img-wrap.img-loaded{background:#faf5f8;animation:none;}
 .pdp-main-img-wrap.img-loaded .pdp-main-img{animation:pdpBob 4s ease-in-out infinite;}
 .pdp-main-img-wrap.img-loaded:hover .pdp-main-img{animation-play-state:paused;}
+/* Mobile pinch-zoom stays inside the image box (page itself never zooms from here) */
+@media (pointer:coarse){.pdp-main-img-wrap{touch-action:none;}}
+.pdp-main-img-wrap.pdp-zoomed .pdp-main-img{animation:none!important;transform-origin:0 0;will-change:scale,translate;}
 .pdp-zoom-lens{position:absolute;width:100px;height:100px;border-radius:50%;border:2.5px solid rgba(255,255,255,0.95);box-shadow:0 8px 32px rgba(0,0,0,0.22),0 0 0 1px rgba(0,0,0,0.08);pointer-events:none;z-index:30;background-repeat:no-repeat;overflow:hidden;top:0;left:0;opacity:0;transform:scale(0.5);transition:opacity 0.3s ease,transform 0.3s cubic-bezier(0.34,1.56,0.64,1);}
 .pdp-real-badge{position:absolute;top:20px;left:-14px;z-index:6;display:flex;align-items:center;gap:5px;background:rgba(0,0,0,0.62);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-radius:20px;padding:5px 11px 5px 8px;border:1px solid rgba(255,255,255,0.18);box-shadow:0 4px 14px rgba(0,0,0,0.18);}
 .pdp-real-badge-dot{width:7px;height:7px;border-radius:50%;background:#22c55e;box-shadow:0 0 6px #22c55e;flex-shrink:0;}
@@ -717,6 +719,15 @@ footer::before{content:'SCENTY';font-family:'Bangers',cursive;font-size:clamp(80
 
 /* ---- DAY/NIGHT ICONS ---- */
 .pdp-name-row{display:flex;align-items:center;gap:12px;margin-bottom:4px;}
+/* Floating "Go to reviews" button (bottom-left of the product page) */
+.pdp-review-jump{position:fixed;left:16px;bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:260;opacity:0;pointer-events:none;transform:translateY(14px);display:flex;align-items:center;gap:8px;padding:9px 16px 9px 12px;border-radius:999px;border:2px solid #111;background:var(--pink);color:#fff;font-family:'Nunito',sans-serif;font-weight:900;font-size:13px;letter-spacing:.4px;line-height:1;cursor:pointer;box-shadow:3px 3px 0 #111;transition:transform .2s ease,opacity .25s ease,box-shadow .2s ease;-webkit-tap-highlight-color:transparent;}
+.pdp-review-jump:hover{box-shadow:5px 5px 0 #111;}
+.pdp-overlay.open + .pdp-review-jump:not(.is-hidden):active{transform:translate(2px,2px);box-shadow:1px 1px 0 #111;}
+.pdp-overlay.open + .pdp-review-jump:not(.is-hidden){opacity:1;pointer-events:auto;transform:none;}
+.pdp-overlay.open + .pdp-review-jump:not(.is-hidden):hover{transform:translateY(-2px);}
+.pdp-review-jump svg{width:18px;height:18px;flex:none;fill:#FFD43B;stroke:#111;stroke-width:1.2;stroke-linejoin:round;}
+.pdp-review-jump-count{display:none;min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:#fff;color:#111;font-size:11px;font-weight:900;align-items:center;justify-content:center;}
+@media(max-width:780px){.pdp-review-jump{left:12px;font-size:12px;padding:8px 13px 8px 10px;gap:6px;}}
 .pdp-usage-icons{display:flex;gap:8px;margin-left:8px;}
 .usage-icon{display:flex;flex-direction:column;align-items:center;gap:4px;cursor:default;transform:scale(0.8);transition:transform 0.3s ease;}
 .usage-icon:hover{transform:scale(0.9);}
@@ -4053,6 +4064,11 @@ AE:'United Arab Emirates',AF:'Afghanistan',AL:'Albania',AM:'Armenia',AO:'Angola'
   </div>
   <div id="pdpReviews" class="pdp-reviews"></div>
 </div>
+<button type="button" class="pdp-review-jump" id="pdpReviewJump" onclick="pdpScrollToReviews()" aria-label="See what others say" title="Reviews">
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3 6.1 20.6l1.3-6.6L2.5 9.4l6.6-.8z"/></svg>
+  <span>See what others say</span>
+  <span class="pdp-review-jump-count" id="pdpReviewJumpCount"></span>
+</button>
 
 <!-- CART -->
 <div class="cart-overlay" id="cartOverlay" onclick="closeCart()"></div>
@@ -5361,21 +5377,6 @@ function getFixedBundleDiscount(){
   return r;
 }
 window.getFixedBundleDiscount=getFixedBundleDiscount;
-// Name of the store-wide offer currently switched ON in admin (only one can be on at a time).
-function getActiveStoreOfferName(){
-  const st=window._bogoSettings;
-  if(!st) return '';
-  if(st.enabled) return 'Buy 1 Get 1 Free';
-  if(st.b2g1) return 'Buy 2 Get 1 Free';
-  return '';
-}
-function renderOrderOfferTag(){
-  const box=document.getElementById('osOfferRow');
-  if(!box) return;
-  const name=getActiveStoreOfferName();
-  box.innerHTML = name ? '<div class="os-offer-tag">🎁 '+name+'</div>' : '';
-}
-window.renderOrderOfferTag=renderOrderOfferTag;
 
 // Admin toggle ON: for "buy X get Y free" bundles, the cheapest units among (trigger + gift) are the free
 // ones. If the gift costs more than the trigger, the customer pays the extra computed here.
@@ -5616,7 +5617,6 @@ function openOrderModal(){
   osHtml += giftLines.map(g=>`<div class="os-item"><span>${g.name} × ${g.qty} <span style="color:#1a9c5e;font-weight:800;">(🎁 هدية)</span></span><span>FREE</span></div>`).join('');
   osHtml += getGiftUpgrade().items.map(u=>`<div class="os-item"><span>${u.name} <span style="color:#a8650a;font-weight:800;">(فرق سعر الهدية)</span></span><span>EGP ${Math.round(u.extra)}</span></div>`).join('');
   osHtml += `<div id="osDiscountRow"></div>`;
-  osHtml += `<div id="osOfferRow"></div>`;
   osHtml += `<div class="os-total"><div style="font-size:13px;font-weight:900;letter-spacing:1px;text-transform:uppercase">Total</div><div class="os-total-val" id="osTotalVal">EGP ${total}</div></div>`;
   document.getElementById('orderSummaryBox').innerHTML=osHtml;
   updateOrderTotal();
@@ -5659,7 +5659,6 @@ function updateOrderTotal(){
   const el=document.getElementById('orderTotalValue');
   const osEl=document.getElementById('osTotalVal');
   const discRowEl=document.getElementById('osDiscountRow');
-  renderOrderOfferTag();
   if(subEl) subEl.textContent='EGP '+raw;
   if(discRowBox){
     if(discountAmt>0){
@@ -6858,6 +6857,7 @@ window.pdpQty = pdpQty;
     // Mobile: touch events — hold & drag to zoom
     wrap.addEventListener('touchstart', function(e) {
       if (e.touches.length !== 1) return;
+      if (window.pdpPinchActive && window.pdpPinchActive()) return;
       e.preventDefault();
       var c = getCoordsFromTouch(e.touches[0]);
       if (!c) return;
@@ -6874,6 +6874,7 @@ window.pdpQty = pdpQty;
 
     wrap.addEventListener('touchmove', function(e) {
       if (e.touches.length !== 1) return;
+      if (window.pdpPinchActive && window.pdpPinchActive()) return;
       e.preventDefault();
       var c = getCoordsFromTouch(e.touches[0]);
       if (!c) return;
@@ -6888,6 +6889,100 @@ window.pdpQty = pdpQty;
       lens.style.opacity = '0';
       lens.style.transform = 'scale(0.5)';
     });
+
+    initPinch();
+  }
+
+  // Two-finger pinch zooms the picture INSIDE its box only; one finger pans it while zoomed;
+  // double-tap (or pinching back out) returns to normal.
+  var pz = { s:1, tx:0, ty:0, mode:null };
+  window.pdpPinchActive = function(){ return pz.mode !== null || pz.s > 1.001; };
+
+  function initPinch() {
+    if (!wrap || wrap._pinchInit) return;
+    wrap._pinchInit = true;
+    var startD = 1, startS = 1, startP = {x:0,y:0}, panStart = null, lastTap = 0;
+
+    function getImg(){ return document.getElementById('pdpMainImg'); }
+    function apply(){
+      var img = getImg();
+      if (!img) return;
+      if (pz.s <= 1.001) {
+        pz.s = 1; pz.tx = 0; pz.ty = 0;
+        img.style.scale = ''; img.style.translate = '';
+        wrap.classList.remove('pdp-zoomed');
+        return;
+      }
+      wrap.classList.add('pdp-zoomed');
+      img.style.scale = String(pz.s);
+      img.style.translate = pz.tx + 'px ' + pz.ty + 'px';
+    }
+    function reset(){ pz.s = 1; pz.tx = 0; pz.ty = 0; apply(); }
+    window.pdpResetPinch = reset;
+    function clampT(){
+      var w = wrap.clientWidth, h = wrap.clientHeight;
+      pz.tx = Math.min(0, Math.max(w - pz.s * w, pz.tx));
+      pz.ty = Math.min(0, Math.max(h - pz.s * h, pz.ty));
+    }
+    function mid(t){
+      var r = wrap.getBoundingClientRect();
+      return { x:(t[0].clientX + t[1].clientX)/2 - r.left, y:(t[0].clientY + t[1].clientY)/2 - r.top };
+    }
+    function dist(t){ return Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY) || 1; }
+
+    wrap.addEventListener('touchstart', function(e){
+      if (e.touches.length === 2) {
+        e.preventDefault();
+        lens.style.opacity = '0'; lens.style.transform = 'scale(0.5)';
+        pz.mode = 'pinch';
+        startD = dist(e.touches); startS = pz.s;
+        var m = mid(e.touches);
+        startP = { x:(m.x - pz.tx)/pz.s, y:(m.y - pz.ty)/pz.s };
+        wrap.classList.add('pdp-zoomed');
+      } else if (e.touches.length === 1 && pz.s > 1.001 && pz.mode === null) {
+        e.preventDefault();
+        var now = Date.now();
+        if (now - lastTap < 300) { lastTap = 0; reset(); return; }
+        lastTap = now;
+        pz.mode = 'pan';
+        panStart = { x:e.touches[0].clientX, y:e.touches[0].clientY, tx:pz.tx, ty:pz.ty };
+      }
+    }, { passive:false });
+
+    wrap.addEventListener('touchmove', function(e){
+      if (pz.mode === 'pinch' && e.touches.length === 2) {
+        e.preventDefault();
+        var m = mid(e.touches);
+        pz.s = Math.min(5, Math.max(1, startS * dist(e.touches) / startD));
+        pz.tx = m.x - pz.s * startP.x;
+        pz.ty = m.y - pz.s * startP.y;
+        clampT(); apply();
+      } else if (pz.mode === 'pan' && e.touches.length === 1 && panStart) {
+        e.preventDefault();
+        pz.tx = panStart.tx + (e.touches[0].clientX - panStart.x);
+        pz.ty = panStart.ty + (e.touches[0].clientY - panStart.y);
+        clampT(); apply();
+      }
+    }, { passive:false });
+
+    function end(e){
+      if (e.touches.length === 0) {
+        pz.mode = null; panStart = null;
+        if (pz.s < 1.05) reset();
+      }
+    }
+    wrap.addEventListener('touchend', end);
+    wrap.addEventListener('touchcancel', end);
+
+    // iOS Safari: stop the browser's own page pinch-zoom starting on the picture
+    wrap.addEventListener('gesturestart',  function(e){ e.preventDefault(); });
+    wrap.addEventListener('gesturechange', function(e){ e.preventDefault(); });
+
+    // new picture (size switched / another product opened) -> start un-zoomed
+    if (window.MutationObserver) {
+      new MutationObserver(function(){ if (pz.s !== 1 || pz.mode) { pz.mode = null; reset(); } })
+        .observe(wrap, { childList:true, subtree:true, attributes:true, attributeFilter:['src'] });
+    }
   }
 
   window.pdpZoomHint = function() {
@@ -7471,6 +7566,23 @@ async function submitReview() {
   if (btn) { btn.disabled=false; btn.textContent='Post Review'; }
 }
 
+(function(){
+  function setup(){
+    var ov=document.getElementById('pdpOverlay'), rv=document.getElementById('pdpReviews'), b=document.getElementById('pdpReviewJump');
+    if(!ov||!rv||!b||!window.IntersectionObserver) return;
+    new IntersectionObserver(function(es){
+      b.classList.toggle('is-hidden', es[0].isIntersecting);
+    },{ root:ov, threshold:0.12 }).observe(rv);
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',setup); else setup();
+})();
+
+window.pdpScrollToReviews = function(){
+  var el = document.getElementById('pdpReviews');
+  if(!el) return;
+  el.scrollIntoView({ behavior:'smooth', block:'start' });
+};
+
 async function loadReviews(productId) {
   const listEl = document.getElementById('reviewList');
   if (!listEl) return;
@@ -7500,6 +7612,14 @@ async function loadReviews(productId) {
       breakdownEl.innerHTML='';
     }
     window._reviewFilteredList = filtered;
+    (function(){
+      var c=document.getElementById('pdpReviewJumpCount'), b=document.getElementById('pdpReviewJump');
+      if(c){ c.textContent=filtered.length; c.style.display=filtered.length?'flex':'none'; }
+      if(b){
+        if(filtered.length){ var a=filtered.reduce(function(s,r){return s+r.rating;},0)/filtered.length; b.title=a.toFixed(1)+' ★ · '+filtered.length+' review'+(filtered.length!==1?'s':''); }
+        else b.title='Reviews';
+      }
+    })();
     renderReviewPage(1, false);
   } catch(e) { listEl.innerHTML='<div class="review-empty">Could not load reviews.</div>'; }
 }
